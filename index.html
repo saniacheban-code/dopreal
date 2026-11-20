@@ -3,132 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>AR-Тайник: Рациональные числа</title>
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <title>Geo-Тайники: Подойди ногами</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, sans-serif; background: #000; }
-        .hud {
-            position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
-            z-index: 20; background: rgba(15, 23, 42, 0.9); color: #fff;
-            padding: 10px 18px; border-radius: 14px; border: 2px solid #38bdf8;
-            text-align: center; min-width: 280px; max-width: 92vw;
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body, html {
+            width: 100%; height: 100%; overflow: hidden;
+            background: #0f172a; font-family: 'Segoe UI', Tahoma, sans-serif; color: #fff;
         }
-        .hud .stats { font-size: 13px; color: #94a3b8; }
-        .hud .task { font-size: 20px; font-weight: bold; margin-top: 3px; }
-        .hud .sub { font-size: 12px; color: #7dd3fc; margin-top: 2px; }
+        #camera {
+            position: fixed; inset: 0; width: 100%; height: 100%;
+            object-fit: cover; z-index: 1; opacity: 0.55;
+        }
+        .overlay {
+            position: relative; z-index: 2; height: 100%;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: 16px;
+        }
+        .card {
+            background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(8px);
+            border: 2px solid #38bdf8; border-radius: 16px; padding: 14px 18px;
+            text-align: center;
+        }
+        .stats { font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
+        .dist { font-size: 26px; font-weight: 800; color: #38bdf8; margin: 4px 0; }
+        .task { font-size: 21px; font-weight: bold; margin-top: 6px; }
+        .sub { font-size: 13px; color: #cbd5e1; margin-top: 4px; }
 
-        .bottom-panel {
-            position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
-            z-index: 20; display: flex; flex-wrap: wrap; gap: 8px;
-            justify-content: center; width: 94vw; max-width: 440px;
+        .actions { display: flex; flex-direction: column; gap: 10px; }
+        .row { display: flex; gap: 8px; flex-wrap: wrap; }
+        button {
+            flex: 1 1 45%; padding: 13px 14px; font-size: 16px; font-weight: bold;
+            border: none; border-radius: 12px; cursor: pointer; color: #fff;
+            background: #0284c7;
         }
-        .ans-btn {
-            flex: 1 1 42%; padding: 12px 10px; font-size: 18px; font-weight: bold;
-            border: none; border-radius: 12px; color: #fff; background: #0284c7;
-            cursor: pointer;
-        }
-        #openBtn {
-            width: 100%; padding: 13px; font-size: 16px; font-weight: bold;
-            border: none; border-radius: 12px; color: #fff; background: #16a34a;
-            cursor: pointer;
-        }
-        #openBtn:disabled {
-            background: #475569;
-            color: #cbd5e1;
-            cursor: not-allowed;
-        }
+        button.green { background: #16a34a; width: 100%; flex: 1 1 100%; }
+        button.gray { background: #334155; font-size: 13px; padding: 10px; }
+        button:disabled { background: #475569; color: #cbd5e1; cursor: not-allowed; }
     </style>
 </head>
 <body>
 
-<div class="hud">
-    <div class="stats">Очки: <span id="score">0</span> | Решено: <span id="solved">0</span></div>
-    <div class="task" id="taskText">Метка не найдена</div>
-    <div class="sub" id="subText">Наведите камеру на маркер HIRO</div>
+<video id="camera" autoplay playsinline muted></video>
+
+<div class="overlay">
+    <div class="card">
+        <div class="stats">Очки: <span id="score">0</span> | Тайник: <span id="cacheNum">1</span>/3</div>
+        <div class="dist" id="distanceText">-- м</div>
+        <div class="task" id="taskText">Ожидание GPS...</div>
+        <div class="sub" id="subText">Подойдите ногами ближе 6 м, чтобы открыть тайник</div>
+    </div>
+
+    <div class="actions">
+        <div id="answerButtons" class="row"></div>
+        <button class="green" id="openBtn" disabled>Подойдите ближе к тайнику</button>
+        <div class="row">
+            <button class="gray" id="simNearBtn">Тест: поставить тайник в 3 м</button>
+            <button class="gray" id="nextCacheBtn">Следующий тайник</button>
+        </div>
+    </div>
 </div>
-
-<div class="bottom-panel" id="panel">
-    <button id="openBtn" disabled>Сначала найдите метку HIRO</button>
-</div>
-
-<a-scene
-    embedded
-    vr-mode-ui="enabled: false"
-    renderer="logarithmicDepthBuffer: true; alpha: true;"
-    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;">
-
-    <a-marker preset="hiro" id="hiroMarker">
-        <!-- Платформа на маркере -->
-        <a-box position="0 0.03 0" width="1.1" depth="1.1" height="0.06" color="#1e293b"></a-box>
-
-        <!-- Тайник-куб -->
-        <a-box id="cacheBox" position="0 0.34 0" width="0.45" height="0.45" depth="0.45"
-               color="#f59e0b" material="roughness: 0.35; metalness: 0.15"></a-box>
-
-        <!-- 4 сферы с вариантами ответа -->
-        <a-sphere id="s0" position="-0.75 0.68 0" radius="0.22" color="#0ea5e9" visible="false">
-            <a-text id="t0" value="" align="center" color="#fff" position="0 0 0.24" scale="1.2 1.2 1.2"></a-text>
-        </a-sphere>
-        <a-sphere id="s1" position="0.75 0.68 0" radius="0.22" color="#8b5cf6" visible="false">
-            <a-text id="t1" value="" align="center" color="#fff" position="0 0 0.24" scale="1.2 1.2 1.2"></a-text>
-        </a-sphere>
-        <a-sphere id="s2" position="-0.75 0.28 0.55" radius="0.22" color="#ec4899" visible="false">
-            <a-text id="t2" value="" align="center" color="#fff" position="0 0 0.24" scale="1.2 1.2 1.2"></a-text>
-        </a-sphere>
-        <a-sphere id="s3" position="0.75 0.28 0.55" radius="0.22" color="#10b981" visible="false">
-            <a-text id="t3" value="" align="center" color="#fff" position="0 0 0.24" scale="1.2 1.2 1.2"></a-text>
-        </a-sphere>
-    </a-marker>
-
-    <a-entity camera></a-entity>
-</a-scene>
 
 <script>
-    const marker = document.getElementById('hiroMarker');
-    const cacheBox = document.getElementById('cacheBox');
-    const openBtn = document.getElementById('openBtn');
-    const panel = document.getElementById('panel');
+    const video = document.getElementById('camera');
+    const distanceText = document.getElementById('distanceText');
     const taskText = document.getElementById('taskText');
     const subText = document.getElementById('subText');
     const scoreEl = document.getElementById('score');
-    const solvedEl = document.getElementById('solved');
+    const cacheNumEl = document.getElementById('cacheNum');
+    const openBtn = document.getElementById('openBtn');
+    const answerButtons = document.getElementById('answerButtons');
 
+    const UNLOCK_RADIUS_METERS = 6;
     let score = 0;
-    let solved = 0;
+    let currentIdx = 0;
+    let userPos = null;
+    let caches = [];
     let currentCorrect = null;
-    let isOpened = false;
-    let markerVisible = false;
+    let openedCurrent = false;
 
-    function syncButtonState() {
-        if (isOpened) return;
-        if (markerVisible) {
-            openBtn.disabled = false;
-            openBtn.innerText = "Раскрыть тайник и получить пример";
-            taskText.innerText = "Тайник найден на маркере!";
-            subText.innerText = "Нажмите кнопку внизу, чтобы открыть тайник";
-        } else {
-            openBtn.disabled = true;
-            openBtn.innerText = "Сначала найдите метку HIRO";
-            taskText.innerText = "Метка не найдена";
-            subText.innerText = "Наведите камеру на маркер HIRO";
-        }
+    // Расстояние между двумя GPS-координатами в метрах (формула гаверсинуса)
+    function getDistanceMeters(lat1, lon1, lat2, lon2) {
+        const R = 6371000;
+        const toRad = d => d * Math.PI / 180;
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a = Math.sin(dLat / 2) ** 2 +
+                  Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                  Math.sin(dLon / 2) ** 2;
+        return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
-    marker.addEventListener('markerFound', () => {
-        markerVisible = true;
-        syncButtonState();
-    });
+    // Смещение координат на dNorth (м) и dEast (м) от точки старта
+    function offsetCoords(lat, lon, dNorth, dEast) {
+        const dLat = dNorth / 111320;
+        const dLon = dEast / (111320 * Math.cos(lat * Math.PI / 180));
+        return { lat: lat + dLat, lon: lon + dLon };
+    }
 
-    marker.addEventListener('markerLost', () => {
-        markerVisible = false;
-        syncButtonState();
-    });
+    function createCachesAround(lat, lon) {
+        caches = [
+            { ...offsetCoords(lat, lon,  12,   5), solved: false },
+            { ...offsetCoords(lat, lon,  -8,  14), solved: false },
+            { ...offsetCoords(lat, lon,  18, -10), solved: false }
+        ];
+    }
 
     function generateQuestion() {
         const type = Math.floor(Math.random() * 3);
         let a, b, text, ans;
-
         if (type === 0) {
             a = Math.floor(Math.random() * 25) - 12;
             b = Math.floor(Math.random() * 25) - 12;
@@ -147,64 +129,42 @@
             ans = +(a + b).toFixed(1);
             text = `${a.toString().replace('.', ',')} + (${b.toString().replace('.', ',')})`;
         }
-
         return { text: `${text} = ?`, ans };
     }
 
-    function renderAnswerButtons(options) {
-        panel.querySelectorAll('.ans-btn').forEach(btn => btn.remove());
-        options.forEach((val, idx) => {
-            const label = val.toString().replace('.', ',');
-            document.getElementById(`s${idx}`).setAttribute('visible', 'true');
-            document.getElementById(`t${idx}`).setAttribute('value', label);
+    function updateUI() {
+        cacheNumEl.innerText = currentIdx + 1;
+        const c = caches[currentIdx];
+        if (!userPos || !c) return;
 
-            const btn = document.createElement('button');
-            btn.className = 'ans-btn';
-            btn.innerText = label;
-            btn.addEventListener('click', () => handleAnswer(val));
-            panel.appendChild(btn);
-        });
-    }
+        const dist = getDistanceMeters(userPos.lat, userPos.lon, c.lat, c.lon);
+        distanceText.innerText = `${dist.toFixed(1)} м`;
 
-    function closeCache() {
-        isOpened = false;
-        currentCorrect = null;
-        cacheBox.setAttribute('color', '#f59e0b');
-        for (let i = 0; i < 4; i++) {
-            document.getElementById(`s${i}`).setAttribute('visible', 'false');
-        }
-        panel.querySelectorAll('.ans-btn').forEach(btn => btn.remove());
-        openBtn.style.display = 'block';
-        syncButtonState();
-    }
+        if (openedCurrent) return;
 
-    function handleAnswer(chosen) {
-        if (chosen === currentCorrect) {
-            score += 15;
-            solved += 1;
-            scoreEl.innerText = score;
-            solvedEl.innerText = solved;
-            cacheBox.setAttribute('color', '#22c55e');
-            subText.innerText = "Верно! +15 очков";
-            setTimeout(closeCache, 1000);
+        if (dist <= UNLOCK_RADIUS_METERS) {
+            openBtn.disabled = false;
+            openBtn.innerText = "Открыть тайник (вы в зоне)";
+            taskText.innerText = "Тайник рядом!";
+            subText.innerText = "Нажмите кнопку, чтобы раскрыть задание";
         } else {
-            score = Math.max(0, score - 5);
-            scoreEl.innerText = score;
-            cacheBox.setAttribute('color', '#ef4444');
-            subText.innerText = "Неверно! -5 очков";
+            openBtn.disabled = true;
+            openBtn.innerText = `Подойдите ближе (нужно <= ${UNLOCK_RADIUS_METERS} м)`;
+            taskText.innerText = "Идите к тайнику";
+            subText.innerText = `Осталось пройти около ${Math.max(0, Math.round(dist - UNLOCK_RADIUS_METERS))} м`;
         }
     }
 
     openBtn.addEventListener('click', () => {
-        if (!markerVisible || isOpened) return;
-        isOpened = true;
+        if (openBtn.disabled || openedCurrent) return;
+        openedCurrent = true;
         openBtn.style.display = 'none';
-        cacheBox.setAttribute('color', '#38bdf8');
+        answerButtons.innerHTML = '';
 
         const q = generateQuestion();
         currentCorrect = q.ans;
         taskText.innerText = q.text;
-        subText.innerText = "Выберите правильный ответ";
+        subText.innerText = "Выберите верный ответ";
 
         const opts = new Set([q.ans]);
         while (opts.size < 4) {
@@ -214,8 +174,83 @@
             opts.add(fake);
         }
 
-        renderAnswerButtons(Array.from(opts).sort(() => Math.random() - 0.5));
+        Array.from(opts).sort(() => Math.random() - 0.5).forEach(val => {
+            const btn = document.createElement('button');
+            btn.innerText = val.toString().replace('.', ',');
+            btn.addEventListener('click', () => {
+                if (val === currentCorrect) {
+                    score += 20;
+                    scoreEl.innerText = score;
+                    subText.innerText = "Верно! +20 очков";
+                } else {
+                    score = Math.max(0, score - 5);
+                    scoreEl.innerText = score;
+                    subText.innerText = "Неверно! -5 очков";
+                }
+                answerButtons.innerHTML = '';
+                openedCurrent = false;
+                openBtn.style.display = 'block';
+                currentIdx = (currentIdx + 1) % caches.length;
+                updateUI();
+            });
+            answerButtons.appendChild(btn);
+        });
     });
+
+    // Кнопка для проверки механики открытия, не выходя из помещения
+    document.getElementById('simNearBtn').addEventListener('click', () => {
+        if (!userPos) {
+            userPos = { lat: 52.54, lon: 62.50 };
+            createCachesAround(userPos.lat, userPos.lon);
+        }
+        const near = offsetCoords(userPos.lat, userPos.lon, 3, 0);
+        caches[currentIdx].lat = near.lat;
+        caches[currentIdx].lon = near.lon;
+        openedCurrent = false;
+        openBtn.style.display = 'block';
+        answerButtons.innerHTML = '';
+        updateUI();
+    });
+
+    document.getElementById('nextCacheBtn').addEventListener('click', () => {
+        currentIdx = (currentIdx + 1) % caches.length;
+        openedCurrent = false;
+        openBtn.style.display = 'block';
+        answerButtons.innerHTML = '';
+        updateUI();
+    });
+
+    async function init() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment' },
+                audio: false
+            });
+            video.srcObject = stream;
+        } catch (e) {}
+
+        if ('geolocation' in navigator) {
+            navigator.geolocation.watchPosition(
+                (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    if (!userPos) {
+                        userPos = { lat: latitude, lon: longitude };
+                        createCachesAround(latitude, longitude);
+                    } else {
+                        userPos = { lat: latitude, lon: longitude };
+                    }
+                    updateUI();
+                },
+                (err) => {
+                    taskText.innerText = "GPS недоступен или запрещён";
+                    subText.innerText = "Можно нажать «Тест: поставить тайник в 3 м» для проверки";
+                },
+                { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
+            );
+        }
+    }
+
+    init();
 </script>
 </body>
 </html>
