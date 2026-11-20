@@ -3,366 +3,344 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>AR-Охота: Рациональные числа</title>
+    <title>3D AR-Математика: Пространство и укрытия</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
         body, html {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background: #000;
-            font-family: 'Segoe UI', Tahoma, sans-serif;
+            width: 100%; height: 100%; overflow: hidden;
+            background: #000; font-family: 'Segoe UI', Tahoma, sans-serif;
         }
-        /* Видео с камеры на весь экран */
         #camera {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            object-fit: cover;
-            z-index: 1;
+            position: fixed; inset: 0; width: 100%; height: 100%;
+            object-fit: cover; z-index: 1;
         }
-        /* Игровой слой поверх камеры */
-        #gameCanvas {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: 2;
+        #threeCanvas {
+            position: fixed; inset: 0; width: 100%; height: 100%;
+            z-index: 2; pointer-events: auto;
         }
-        /* Верхняя панель с заданием и счетом */
         .hud {
-            position: fixed;
-            top: 15px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 3;
-            background: rgba(15, 23, 42, 0.82);
-            backdrop-filter: blur(6px);
-            color: #fff;
-            padding: 12px 24px;
-            border-radius: 16px;
-            border: 2px solid #38bdf8;
-            text-align: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-            min-width: 260px;
+            position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+            z-index: 4; background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px); color: #fff;
+            padding: 12px 22px; border-radius: 16px;
+            border: 2px solid #38bdf8; text-align: center;
+            min-width: 270px; pointer-events: none;
         }
-        .hud .stats {
-            font-size: 14px;
-            color: #94a3b8;
-            margin-bottom: 4px;
+        .hud .stats { font-size: 13px; color: #94a3b8; margin-bottom: 4px; }
+        .hud .task { font-size: 24px; font-weight: bold; color: #f8fafc; }
+        .hint {
+            position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+            z-index: 4; background: rgba(15, 23, 42, 0.75); color: #e2e8f0;
+            padding: 8px 16px; border-radius: 999px; font-size: 13px;
+            white-space: nowrap; pointer-events: none;
         }
-        .hud .task {
-            font-size: 26px;
-            font-weight: bold;
-            color: #f8fafc;
-        }
-        /* Стартовый экран */
         #startScreen {
-            position: fixed;
-            inset: 0;
-            z-index: 10;
-            background: rgba(15, 23, 42, 0.95);
-            color: white;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            text-align: center;
+            position: fixed; inset: 0; z-index: 10;
+            background: rgba(15, 23, 42, 0.96); color: #fff;
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; padding: 24px; text-align: center;
         }
-        #startScreen h1 { font-size: 28px; margin-bottom: 12px; color: #38bdf8; }
-        #startScreen p { font-size: 16px; color: #cbd5e1; max-width: 340px; margin-bottom: 25px; line-height: 1.4; }
+        #startScreen h1 { color: #38bdf8; font-size: 26px; margin-bottom: 12px; }
+        #startScreen p { color: #cbd5e1; max-width: 360px; line-height: 1.45; margin-bottom: 22px; }
         button {
-            padding: 15px 32px;
-            font-size: 18px;
-            font-weight: bold;
-            background: #0284c7;
-            color: white;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(2, 132, 199, 0.5);
+            padding: 14px 28px; font-size: 17px; font-weight: bold;
+            background: #0284c7; color: #fff; border: none; border-radius: 12px;
+            cursor: pointer; box-shadow: 0 4px 18px rgba(2, 132, 199, 0.45);
         }
-        button:active { transform: scale(0.97); }
     </style>
+    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
 </head>
 <body>
 
 <div id="startScreen">
-    <h1>AR-Математика</h1>
-    <p>Наводите прицел камеры на летающие сферы с правильными ответами или нажимайте на них прямо на экране!</p>
-    <button id="startBtn">Запустить камеру и игру</button>
+    <h1>3D AR-Математика</h1>
+    <p>3D-сферы закреплены в пространстве вокруг вас и могут скрываться за 3D-колоннами/экранами сцены. Поворачивайте смартфон, чтобы заглянуть за укрытия, и нажимайте на верный ответ!</p>
+    <button id="startBtn">Запустить 3D AR</button>
 </div>
 
-<video id="camera" autoplay playsinline></video>
-<canvas id="gameCanvas"></canvas>
+<video id="camera" autoplay playsinline muted></video>
+<canvas id="threeCanvas"></canvas>
 
 <div class="hud" id="hud" style="display:none;">
-    <div class="stats">Счёт: <span id="score">0</span> | Вопрос: <span id="qNum">1</span>/10</div>
+    <div class="stats">Счёт: <span id="score">0</span> | Пример: <span id="qNum">1</span></div>
     <div class="task" id="taskText">-12 + 7 = ?</div>
 </div>
 
+<div class="hint" id="hint" style="display:none;">Поворачивайте телефон • Тапните по сфере с ответом</div>
+
 <script>
     const video = document.getElementById('camera');
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
+    const canvas = document.getElementById('threeCanvas');
     const startScreen = document.getElementById('startScreen');
     const hud = document.getElementById('hud');
+    const hint = document.getElementById('hint');
     const taskText = document.getElementById('taskText');
     const scoreEl = document.getElementById('score');
     const qNumEl = document.getElementById('qNum');
 
-    let width, height;
-    let score = 0;
-    let questionCount = 1;
+    let scene, camera3D, renderer, raycaster;
+    let answerMeshes = [];
+    let occluderMeshes = [];
     let currentCorrect = 0;
-    let targets = [];
-    let particles = [];
-    let flashColor = null;
+    let score = 0, qNum = 1;
 
-    // Гироскоп для смещения объектов при повороте телефона (эффект пространства)
-    let tiltX = 0, tiltY = 0;
-    let baseBeta = null, baseGamma = null;
+    // Углы поворота камеры по гироскопу (в радианах)
+    let yaw = 0, pitch = 0;
+    let baseAlpha = null, baseBeta = null, baseGamma = null;
 
-    function resize() {
-        width = canvas.width = window.innerWidth;
-        height = canvas.height = window.innerHeight;
+    function makeLabelTexture(text, bgColor) {
+        const c = document.createElement('canvas');
+        c.width = 256; c.height = 256;
+        const g = c.getContext('2d');
+
+        // Объёмный градиент сферы
+        const grad = g.createRadialGradient(90, 80, 20, 128, 128, 125);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.25, bgColor);
+        grad.addColorStop(1, '#0f172a');
+
+        g.fillStyle = grad;
+        g.beginPath();
+        g.arc(128, 128, 120, 0, Math.PI * 2);
+        g.fill();
+
+        g.lineWidth = 8;
+        g.strokeStyle = 'rgba(255,255,255,0.65)';
+        g.stroke();
+
+        // Текст ответа
+        g.fillStyle = '#ffffff';
+        g.font = 'bold 68px Segoe UI, sans-serif';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.shadowColor = 'rgba(0,0,0,0.6)';
+        g.shadowBlur = 10;
+        g.fillText(text, 128, 132);
+
+        return new THREE.CanvasTexture(c);
     }
-    window.addEventListener('resize', resize);
-    resize();
 
-    // Генератор примеров по теме сложения и вычитания рациональных чисел
+    function initThree() {
+        scene = new THREE.Scene();
+
+        camera3D = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 50);
+        camera3D.position.set(0, 0, 0);
+
+        renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        raycaster = new THREE.Raycaster();
+
+        // Свет для объёма
+        const ambient = new THREE.AmbientLight(0xffffff, 1.1);
+        scene.add(ambient);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(3, 5, 4);
+        scene.add(dirLight);
+
+        // Виртуальные "укрытия" (полупрозрачные 3D-стеллы/колонны в пространстве сцены),
+        // за которыми сферы с ответами могут частично или полностью скрываться по глубине (Z-buffer)
+        const occluderMat = new THREE.MeshBasicMaterial({
+            color: 0x38bdf8,
+            transparent: true,
+            opacity: 0.14,
+            wireframe: false
+        });
+        const edgeMat = new THREE.LineBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.45 });
+
+        const pillarPositions = [
+            { x: -1.4, y: -0.2, z: -3.2, w: 0.7, h: 2.2, d: 0.5 },
+            { x:  1.4, y: -0.2, z: -3.2, w: 0.7, h: 2.2, d: 0.5 },
+            { x:  0.0, y: -0.5, z: -2.6, w: 0.9, h: 1.4, d: 0.5 }
+        ];
+
+        pillarPositions.forEach(p => {
+            const geo = new THREE.BoxGeometry(p.w, p.h, p.d);
+            const mesh = new THREE.Mesh(geo, occluderMat);
+            mesh.position.set(p.x, p.y, p.z);
+
+            const edges = new THREE.EdgesGeometry(geo);
+            const line = new THREE.LineSegments(edges, edgeMat);
+            mesh.add(line);
+
+            // По умолчанию пишем в depthBuffer, чтобы сферы позади скрывались
+            mesh.material.depthWrite = true;
+            scene.add(mesh);
+            occluderMeshes.push(mesh);
+        });
+
+        window.addEventListener('resize', () => {
+            camera3D.aspect = window.innerWidth / window.innerHeight;
+            camera3D.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    }
+
     function generateQuestion() {
         const type = Math.floor(Math.random() * 3);
         let a, b, text, ans;
 
         if (type === 0) {
-            // Целые отрицательные и положительные
-            a = Math.floor(Math.random() * 31) - 15;
-            b = Math.floor(Math.random() * 31) - 15;
-            if (b === 0) b = 4;
+            a = Math.floor(Math.random() * 25) - 12;
+            b = Math.floor(Math.random() * 25) - 12;
+            if (b === 0) b = 5;
             ans = a + b;
             text = b < 0 ? `${a} + (${b})` : `${a} + ${b}`;
         } else if (type === 1) {
-            // Вычитание
-            a = Math.floor(Math.random() * 25) - 12;
-            b = Math.floor(Math.random() * 25) - 12;
-            if (b === 0) b = -3;
+            a = Math.floor(Math.random() * 21) - 10;
+            b = Math.floor(Math.random() * 21) - 10;
+            if (b === 0) b = -4;
             ans = a - b;
             text = b < 0 ? `${a} - (${b})` : `${a} - ${b}`;
         } else {
-            // Десятичные дроби (один знак после запятой)
-            a = (Math.floor(Math.random() * 20) - 10) / 2;
-            b = (Math.floor(Math.random() * 20) - 10) / 2;
+            a = (Math.floor(Math.random() * 16) - 8) / 2;
+            b = (Math.floor(Math.random() * 16) - 8) / 2;
             ans = +(a + b).toFixed(1);
-            const aStr = a.toString().replace('.', ',');
-            const bStr = b.toString().replace('.', ',');
-            text = b < 0 ? `${aStr} + (${bStr})` : `${aStr} + ${bStr}`;
+            text = `${a.toString().replace('.', ',')} + (${b.toString().replace('.', ',')})`;
         }
 
         currentCorrect = ans;
         taskText.innerText = `${text} = ?`;
-        spawnTargets(ans);
+        spawn3DAnswers(ans);
     }
 
-    function spawnTargets(correctAns) {
-        targets = [];
-        let options = new Set([correctAns]);
-        while (options.size < 4) {
-            let offset = (Math.floor(Math.random() * 9) - 4);
-            if (offset === 0) offset = 5;
+    function spawn3DAnswers(correctAns) {
+        answerMeshes.forEach(m => scene.remove(m));
+        answerMeshes = [];
+
+        const opts = new Set([correctAns]);
+        while (opts.size < 4) {
+            let delta = Math.floor(Math.random() * 7) - 3;
+            if (delta === 0) delta = 4;
             let fake = Number.isInteger(correctAns)
-                ? correctAns + offset
-                : +(correctAns + offset * 0.5).toFixed(1);
-            options.add(fake);
+                ? correctAns + delta
+                : +(correctAns + delta * 0.5).toFixed(1);
+            opts.add(fake);
         }
 
-        const optArray = Array.from(options).sort(() => Math.random() - 0.5);
-        const colors = ['#0ea5e9', '#8b5cf6', '#ec4899', '#f59e0b'];
+        const arr = Array.from(opts).sort(() => Math.random() - 0.5);
+        const palette = ['#0ea5e9', '#8b5cf6', '#ec4899', '#f59e0b'];
 
-        optArray.forEach((val, i) => {
-            targets.push({
-                value: val,
-                label: val.toString().replace('.', ','),
-                x: width * (0.2 + i * 0.2),
-                y: height * (0.35 + (i % 2) * 0.25),
-                vx: (Math.random() - 0.5) * 1.6,
-                vy: (Math.random() - 0.5) * 1.6,
-                r: 44,
-                color: colors[i % colors.length],
-                hoverTime: 0
+        // Закрепляем сферы на разной глубине (Z) вокруг укрытий
+        const slots = [
+            { x: -1.8, y:  0.35, z: -2.4, orbitAmp: 0.45, speed: 1.1 },
+            { x:  1.8, y:  0.30, z: -2.5, orbitAmp: 0.45, speed: 1.25 },
+            { x: -0.7, y: -0.35, z: -4.2, orbitAmp: 0.65, speed: 0.95 },
+            { x:  0.7, y:  0.55, z: -4.1, orbitAmp: 0.65, speed: 1.15 }
+        ];
+
+        arr.forEach((val, idx) => {
+            const label = val.toString().replace('.', ',');
+            const tex = makeLabelTexture(label, palette[idx % palette.length]);
+            const geo = new THREE.SphereGeometry(0.42, 32, 32);
+            const mat = new THREE.MeshStandardMaterial({
+                map: tex,
+                roughness: 0.25,
+                metalness: 0.1
             });
+
+            const mesh = new THREE.Mesh(geo, mat);
+            const slot = slots[idx];
+            mesh.position.set(slot.x, slot.y, slot.z);
+            mesh.userData = {
+                value: val,
+                baseX: slot.x,
+                baseY: slot.y,
+                baseZ: slot.z,
+                orbitAmp: slot.orbitAmp,
+                speed: slot.speed,
+                phase: idx * 1.5
+            };
+
+            scene.add(mesh);
+            answerMeshes.push(mesh);
         });
     }
 
-    function createExplosion(x, y, color) {
-        for (let i = 0; i < 18; i++) {
-            const angle = (Math.PI * 2 / 18) * i;
-            const speed = 2 + Math.random() * 4;
-            particles.push({
-                x, y,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed,
-                alpha: 1,
-                color
-            });
-        }
-    }
-
-    function checkAnswer(target) {
-        if (target.value === currentCorrect) {
-            score += 10;
-            flashColor = 'rgba(34, 197, 94, 0.35)';
-            createExplosion(target.x + tiltX, target.y + tiltY, '#22c55e');
-        } else {
-            score = Math.max(0, score - 5);
-            flashColor = 'rgba(239, 68, 68, 0.35)';
-            createExplosion(target.x + tiltX, target.y + tiltY, '#ef4444');
-        }
-        scoreEl.innerText = score;
-        questionCount++;
-        qNumEl.innerText = questionCount;
-        generateQuestion();
-    }
-
-    // Клик / тап прямо по сфере
+    // Тап по 3D-сфере в пространстве
     canvas.addEventListener('pointerdown', (e) => {
+        if (!scene || !camera3D) return;
         const rect = canvas.getBoundingClientRect();
-        const px = e.clientX - rect.left;
-        const py = e.clientY - rect.top;
-
-        for (let t of targets) {
-            const dx = px - (t.x + tiltX);
-            const dy = py - (t.y + tiltY);
-            if (Math.hypot(dx, dy) <= t.r + 10) {
-                checkAnswer(t);
-                break;
+        const pointer = new THREE.Vector2(
+            ((e.clientX - rect.left) / rect.width) * 2 - 1,
+            -((e.clientY - rect.top) / rect.height) * 2 + 1
+        );
+        raycaster.setFromCamera(pointer, camera3D);
+        const hits = raycaster.intersectObjects(answerMeshes, false);
+        if (hits.length > 0) {
+            const chosen = hits[0].object.userData.value;
+            if (chosen === currentCorrect) {
+                score += 10;
+            } else {
+                score = Math.max(0, score - 5);
             }
+            scoreEl.innerText = score;
+            qNum++;
+            qNumEl.innerText = qNum;
+            generateQuestion();
         }
     });
 
-    function loop() {
-        ctx.clearRect(0, 0, width, height);
+    const clock = new THREE.Clock();
+    function animate() {
+        requestAnimationFrame(animate);
+        const t = clock.getElapsedTime();
 
-        // Вспышка экрана при ответе
-        if (flashColor) {
-            ctx.fillStyle = flashColor;
-            ctx.fillRect(0, 0, width, height);
-            flashColor = null;
-        }
+        // Плавный поворот виртуальной камеры по гироскопу — объекты «привязаны к комнате»
+        camera3D.rotation.order = 'YXZ';
+        camera3D.rotation.y = THREE.MathUtils.lerp(camera3D.rotation.y, yaw, 0.12);
+        camera3D.rotation.x = THREE.MathUtils.lerp(camera3D.rotation.x, pitch, 0.12);
 
-        const cx = width / 2;
-        const cy = height / 2;
+        answerMeshes.forEach(mesh => {
+            const u = mesh.userData;
+            // Движение по дуге вокруг своего якоря в пространстве (заходит за укрытия и выходит)
+            mesh.position.x = u.baseX + Math.sin(t * u.speed + u.phase) * u.orbitAmp;
+            mesh.position.y = u.baseY + Math.cos(t * u.speed * 0.8 + u.phase) * 0.18;
+            mesh.position.z = u.baseZ + Math.cos(t * u.speed + u.phase) * 0.9;
 
-        // Отрисовка сфер-мишеней
-        targets.forEach(t => {
-            t.x += t.vx;
-            t.y += t.vy;
-
-            if (t.x < t.r + 20 || t.x > width - t.r - 20) t.vx *= -1;
-            if (t.y < 120 || t.y > height - t.r - 30) t.vy *= -1;
-
-            const drawX = t.x + tiltX;
-            const drawY = t.y + tiltY;
-
-            // Проверка наведения центрального прицела на сферу
-            const distToCenter = Math.hypot(drawX - cx, drawY - cy);
-            if (distToCenter < t.r) {
-                t.hoverTime += 1;
-                if (t.hoverTime > 45) { // ~0.75 сек удержания прицела
-                    checkAnswer(t);
-                    return;
-                }
-            } else {
-                t.hoverTime = Math.max(0, t.hoverTime - 2);
-            }
-
-            // Тень и шар
-            ctx.beginPath();
-            ctx.arc(drawX, drawY, t.r, 0, Math.PI * 2);
-            ctx.fillStyle = t.color;
-            ctx.globalAlpha = 0.88;
-            ctx.fill();
-            ctx.globalAlpha = 1;
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = '#ffffff';
-            ctx.stroke();
-
-            // Кольцо прогресса захвата прицелом
-            if (t.hoverTime > 0) {
-                ctx.beginPath();
-                ctx.arc(drawX, drawY, t.r + 7, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2) * (t.hoverTime / 45));
-                ctx.lineWidth = 4;
-                ctx.strokeStyle = '#fde047';
-                ctx.stroke();
-            }
-
-            // Текст числа внутри шара
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 22px Segoe UI, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(t.label, drawX, drawY);
+            // Поворачиваем шар лицом к камере, чтобы число всегда читалось
+            mesh.lookAt(camera3D.position);
         });
 
-        // Частицы взрыва
-        particles.forEach((p, idx) => {
-            p.x += p.vx;
-            p.y += p.vy;
-            p.alpha -= 0.03;
-            if (p.alpha <= 0) {
-                particles.splice(idx, 1);
-                return;
-            }
-            ctx.globalAlpha = p.alpha;
-            ctx.fillStyle = p.color;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.globalAlpha = 1;
-        });
-
-        // Центральный AR-прицел
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 18, 0, Math.PI * 2);
-        ctx.moveTo(cx - 26, cy); ctx.lineTo(cx - 10, cy);
-        ctx.moveTo(cx + 10, cy); ctx.lineTo(cx + 26, cy);
-        ctx.moveTo(cx, cy - 26); ctx.lineTo(cx, cy - 10);
-        ctx.moveTo(cx, cy + 10); ctx.lineTo(cx, cy + 26);
-        ctx.stroke();
-
-        requestAnimationFrame(loop);
+        renderer.render(scene, camera3D);
     }
 
     document.getElementById('startBtn').addEventListener('click', async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment' }, // Тыльная (основная) камера
+                video: { facingMode: 'environment' },
                 audio: false
             });
             video.srcObject = stream;
         } catch (err) {
-            alert('Не удалось включить камеру (возможно, открыто не по HTTPS или запрещён доступ). Игра запустится на тёмном фоне.');
+            console.warn('Камера недоступна:', err);
         }
 
-        // Подключаем гироскоп, если устройство поддерживает
         if (window.DeviceOrientationEvent) {
             if (typeof DeviceOrientationEvent.requestPermission === 'function') {
                 try { await DeviceOrientationEvent.requestPermission(); } catch (e) {}
             }
             window.addEventListener('deviceorientation', (e) => {
                 if (e.beta === null || e.gamma === null) return;
-                if (baseBeta === null) { baseBeta = e.beta; baseGamma = e.gamma; }
-                tiltX = Math.max(-120, Math.min(120, (e.gamma - baseGamma) * 3));
-                tiltY = Math.max(-120, Math.min(120, (e.beta - baseBeta) * 3));
+                if (baseBeta === null) {
+                    baseBeta = e.beta;
+                    baseGamma = e.gamma;
+                    baseAlpha = e.alpha || 0;
+                }
+                // Переводим наклон телефона в углы обзора 3D-камеры
+                yaw = THREE.MathUtils.degToRad((e.gamma - baseGamma) * 1.1);
+                pitch = THREE.MathUtils.degToRad((e.beta - baseBeta) * 0.8);
             });
         }
 
         startScreen.style.display = 'none';
         hud.style.display = 'block';
+        hint.style.display = 'block';
+
+        initThree();
         generateQuestion();
-        loop();
+        animate();
     });
 </script>
 </body>
