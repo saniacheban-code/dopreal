@@ -3,114 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Geo-Тайники: Подойди ногами</title>
+    <title>WebXR Hit-Test Тайник: Математика</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
-        body, html {
+        html, body {
             width: 100%; height: 100%; overflow: hidden;
-            background: #0f172a; font-family: 'Segoe UI', Tahoma, sans-serif; color: #fff;
+            background: #0b1120; color: #f8fafc;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
         }
-        #camera {
-            position: fixed; inset: 0; width: 100%; height: 100%;
-            object-fit: cover; z-index: 1; opacity: 0.55;
-        }
-        .overlay {
-            position: relative; z-index: 2; height: 100%;
+        #ui {
+            position: fixed; inset: 0; z-index: 10;
+            pointer-events: none;
             display: flex; flex-direction: column; justify-content: space-between;
             padding: 16px;
         }
-        .card {
-            background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(8px);
-            border: 2px solid #38bdf8; border-radius: 16px; padding: 14px 18px;
+        .hud {
+            pointer-events: auto;
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(8px);
+            border: 2px solid #38bdf8;
+            border-radius: 16px;
+            padding: 12px 16px;
             text-align: center;
         }
-        .stats { font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
-        .dist { font-size: 26px; font-weight: 800; color: #38bdf8; margin: 4px 0; }
-        .task { font-size: 21px; font-weight: bold; margin-top: 6px; }
+        .stats { font-size: 13px; color: #94a3b8; margin-bottom: 4px; }
+        .dist { font-size: 26px; font-weight: 800; color: #38bdf8; margin: 2px 0; }
+        .task { font-size: 20px; font-weight: bold; color: #fff; margin-top: 4px; }
         .sub { font-size: 13px; color: #cbd5e1; margin-top: 4px; }
 
-        .actions { display: flex; flex-direction: column; gap: 10px; }
-        .row { display: flex; gap: 8px; flex-wrap: wrap; }
-        button {
-            flex: 1 1 45%; padding: 13px 14px; font-size: 16px; font-weight: bold;
-            border: none; border-radius: 12px; cursor: pointer; color: #fff;
-            background: #0284c7;
+        .bottom {
+            pointer-events: auto;
+            display: flex; flex-direction: column; gap: 10px;
+            max-width: 460px; width: 100%; margin: 0 auto;
         }
-        button.green { background: #16a34a; width: 100%; flex: 1 1 100%; }
-        button.gray { background: #334155; font-size: 13px; padding: 10px; }
+        .answers {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+        }
+        button {
+            padding: 13px 14px; font-size: 16px; font-weight: bold;
+            border: none; border-radius: 12px; cursor: pointer;
+            color: #fff; background: #0284c7;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        }
+        button:active { transform: scale(0.97); }
         button:disabled { background: #475569; color: #cbd5e1; cursor: not-allowed; }
+        button.start { background: #16a34a; font-size: 17px; padding: 15px; }
+        button.secondary { background: #334155; font-size: 14px; padding: 10px; }
+
+        #compatBox {
+            margin-top: 8px; font-size: 12px; color: #fbbf24;
+            line-height: 1.35;
+        }
     </style>
+    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
 </head>
 <body>
 
-<video id="camera" autoplay playsinline muted></video>
-
-<div class="overlay">
-    <div class="card">
-        <div class="stats">Очки: <span id="score">0</span> | Тайник: <span id="cacheNum">1</span>/3</div>
-        <div class="dist" id="distanceText">-- м</div>
-        <div class="task" id="taskText">Ожидание GPS...</div>
-        <div class="sub" id="subText">Подойдите ногами ближе 6 м, чтобы открыть тайник</div>
+<div id="ui">
+    <div class="hud">
+        <div class="stats">Очки: <span id="score">0</span> | Открыто: <span id="openedCount">0</span></div>
+        <div class="dist" id="distText">-- м</div>
+        <div class="task" id="taskText">Проверка WebXR AR...</div>
+        <div class="sub" id="subText">Нужен Android Chrome с ARCore и запуск по HTTPS</div>
+        <div id="compatBox"></div>
     </div>
 
-    <div class="actions">
-        <div id="answerButtons" class="row"></div>
-        <button class="green" id="openBtn" disabled>Подойдите ближе к тайнику</button>
-        <div class="row">
-            <button class="gray" id="simNearBtn">Тест: поставить тайник в 3 м</button>
-            <button class="gray" id="nextCacheBtn">Следующий тайник</button>
-        </div>
+    <div class="bottom">
+        <div class="answers" id="answersGrid"></div>
+        <button class="start" id="startArBtn" disabled>Запуск AR</button>
+        <button id="placeOrOpenBtn" style="display:none;" disabled>Наведите кольцо на поверхность</button>
+        <button class="secondary" id="resetCacheBtn" style="display:none;">Переставить тайник в другое место</button>
     </div>
 </div>
 
 <script>
-    const video = document.getElementById('camera');
-    const distanceText = document.getElementById('distanceText');
+    const UNLOCK_DISTANCE_METERS = 1.1;
+
+    const distText = document.getElementById('distText');
     const taskText = document.getElementById('taskText');
     const subText = document.getElementById('subText');
+    const compatBox = document.getElementById('compatBox');
     const scoreEl = document.getElementById('score');
-    const cacheNumEl = document.getElementById('cacheNum');
-    const openBtn = document.getElementById('openBtn');
-    const answerButtons = document.getElementById('answerButtons');
+    const openedCountEl = document.getElementById('openedCount');
+    const answersGrid = document.getElementById('answersGrid');
+    const startArBtn = document.getElementById('startArBtn');
+    const placeOrOpenBtn = document.getElementById('placeOrOpenBtn');
+    const resetCacheBtn = document.getElementById('resetCacheBtn');
 
-    const UNLOCK_RADIUS_METERS = 6;
     let score = 0;
-    let currentIdx = 0;
-    let userPos = null;
-    let caches = [];
+    let openedCount = 0;
     let currentCorrect = null;
-    let openedCurrent = false;
+    let isQuestionActive = false;
 
-    // Расстояние между двумя GPS-координатами в метрах (формула гаверсинуса)
-    function getDistanceMeters(lat1, lon1, lat2, lon2) {
-        const R = 6371000;
-        const toRad = d => d * Math.PI / 180;
-        const dLat = toRad(lat2 - lat1);
-        const dLon = toRad(lon2 - lon1);
-        const a = Math.sin(dLat / 2) ** 2 +
-                  Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-                  Math.sin(dLon / 2) ** 2;
-        return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    }
-
-    // Смещение координат на dNorth (м) и dEast (м) от точки старта
-    function offsetCoords(lat, lon, dNorth, dEast) {
-        const dLat = dNorth / 111320;
-        const dLon = dEast / (111320 * Math.cos(lat * Math.PI / 180));
-        return { lat: lat + dLat, lon: lon + dLon };
-    }
-
-    function createCachesAround(lat, lon) {
-        caches = [
-            { ...offsetCoords(lat, lon,  12,   5), solved: false },
-            { ...offsetCoords(lat, lon,  -8,  14), solved: false },
-            { ...offsetCoords(lat, lon,  18, -10), solved: false }
-        ];
-    }
+    // Three.js и WebXR
+    let renderer, scene, camera;
+    let reticle, cacheGroup, cacheBox;
+    let xrSession = null;
+    let localRefSpace = null;
+    let viewerRefSpace = null;
+    let hitTestSource = null;
+    let surfaceHitPose = null;
+    let cachePlaced = false;
+    let cacheSolved = false;
 
     function generateQuestion() {
         const type = Math.floor(Math.random() * 3);
         let a, b, text, ans;
+
         if (type === 0) {
             a = Math.floor(Math.random() * 25) - 12;
             b = Math.floor(Math.random() * 25) - 12;
@@ -129,42 +128,26 @@
             ans = +(a + b).toFixed(1);
             text = `${a.toString().replace('.', ',')} + (${b.toString().replace('.', ',')})`;
         }
+
         return { text: `${text} = ?`, ans };
     }
 
-    function updateUI() {
-        cacheNumEl.innerText = currentIdx + 1;
-        const c = caches[currentIdx];
-        if (!userPos || !c) return;
-
-        const dist = getDistanceMeters(userPos.lat, userPos.lon, c.lat, c.lon);
-        distanceText.innerText = `${dist.toFixed(1)} м`;
-
-        if (openedCurrent) return;
-
-        if (dist <= UNLOCK_RADIUS_METERS) {
-            openBtn.disabled = false;
-            openBtn.innerText = "Открыть тайник (вы в зоне)";
-            taskText.innerText = "Тайник рядом!";
-            subText.innerText = "Нажмите кнопку, чтобы раскрыть задание";
-        } else {
-            openBtn.disabled = true;
-            openBtn.innerText = `Подойдите ближе (нужно <= ${UNLOCK_RADIUS_METERS} м)`;
-            taskText.innerText = "Идите к тайнику";
-            subText.innerText = `Осталось пройти около ${Math.max(0, Math.round(dist - UNLOCK_RADIUS_METERS))} м`;
-        }
+    function clearQuestionUI() {
+        answersGrid.innerHTML = '';
+        isQuestionActive = false;
+        currentCorrect = null;
     }
 
-    openBtn.addEventListener('click', () => {
-        if (openBtn.disabled || openedCurrent) return;
-        openedCurrent = true;
-        openBtn.style.display = 'none';
-        answerButtons.innerHTML = '';
+    function startQuestionForCache() {
+        if (isQuestionActive) return;
+        isQuestionActive = true;
+        clearQuestionUI();
 
         const q = generateQuestion();
         currentCorrect = q.ans;
         taskText.innerText = q.text;
-        subText.innerText = "Выберите верный ответ";
+        subText.innerText = "Выберите верный вариант ответа";
+        cacheBox.material.color.setHex(0x38bdf8);
 
         const opts = new Set([q.ans]);
         while (opts.size < 4) {
@@ -180,77 +163,252 @@
             btn.addEventListener('click', () => {
                 if (val === currentCorrect) {
                     score += 20;
+                    openedCount += 1;
                     scoreEl.innerText = score;
-                    subText.innerText = "Верно! +20 очков";
+                    openedCountEl.innerText = openedCount;
+                    cacheBox.material.color.setHex(0x22c55e);
+                    cacheSolved = true;
+                    subText.innerText = "Верно! +20 очков. Тайник открыт!";
+                    clearQuestionUI();
+                    placeOrOpenBtn.disabled = true;
+                    placeOrOpenBtn.innerText = "Тайник уже открыт";
                 } else {
                     score = Math.max(0, score - 5);
                     scoreEl.innerText = score;
-                    subText.innerText = "Неверно! -5 очков";
+                    cacheBox.material.color.setHex(0xef4444);
+                    subText.innerText = "Неверно! -5 очков, попробуйте ещё раз";
                 }
-                answerButtons.innerHTML = '';
-                openedCurrent = false;
-                openBtn.style.display = 'block';
-                currentIdx = (currentIdx + 1) % caches.length;
-                updateUI();
             });
-            answerButtons.appendChild(btn);
+            answersGrid.appendChild(btn);
         });
-    });
+    }
 
-    // Кнопка для проверки механики открытия, не выходя из помещения
-    document.getElementById('simNearBtn').addEventListener('click', () => {
-        if (!userPos) {
-            userPos = { lat: 52.54, lon: 62.50 };
-            createCachesAround(userPos.lat, userPos.lon);
+    function initThree() {
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.05, 50);
+        camera.matrixAutoUpdate = false;
+
+        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.xr.enabled = true;
+        document.body.prepend(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+        const dir = new THREE.DirectionalLight(0xffffff, 1.3);
+        dir.position.set(2, 5, 3);
+        scene.add(dir);
+
+        // Кольцо-индикатор найденной плоскости (пол/стол)
+        const retGeo = new THREE.RingGeometry(0.12, 0.16, 32).rotateX(-Math.PI / 2);
+        const retMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+        reticle = new THREE.Mesh(retGeo, retMat);
+        reticle.matrixAutoUpdate = true;
+        reticle.visible = false;
+        scene.add(reticle);
+
+        // Группа тайника, закрепляемая в мировых координатах комнаты
+        cacheGroup = new THREE.Group();
+        cacheGroup.visible = false;
+
+        const basePlate = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.24, 0.26, 0.03, 24),
+            new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 })
+        );
+        basePlate.position.y = 0.015;
+        cacheGroup.add(basePlate);
+
+        cacheBox = new THREE.Mesh(
+            new THREE.BoxGeometry(0.22, 0.22, 0.22),
+            new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.25, metalness: 0.2 })
+        );
+        cacheBox.position.y = 0.14;
+        cacheGroup.add(cacheBox);
+
+        scene.add(cacheGroup);
+    }
+
+    function placeCacheAtReticle() {
+        if (!surfaceHitPose) return;
+        const pos = surfaceHitPose.transform.position;
+        cacheGroup.position.set(pos.x, pos.y, pos.z);
+        cacheGroup.visible = true;
+        cachePlaced = true;
+        cacheSolved = false;
+        cacheBox.material.color.setHex(0xf59e0b);
+        reticle.visible = false;
+        resetCacheBtn.style.display = 'block';
+        clearQuestionUI();
+        taskText.innerText = "Тайник закреплён на поверхности";
+        subText.innerText = `Подойдите ногами ближе ${UNLOCK_DISTANCE_METERS.toFixed(1)} м, чтобы раскрыть`;
+    }
+
+    placeOrOpenBtn.addEventListener('click', () => {
+        if (!cachePlaced) {
+            placeCacheAtReticle();
+        } else if (!cacheSolved && !isQuestionActive) {
+            startQuestionForCache();
         }
-        const near = offsetCoords(userPos.lat, userPos.lon, 3, 0);
-        caches[currentIdx].lat = near.lat;
-        caches[currentIdx].lon = near.lon;
-        openedCurrent = false;
-        openBtn.style.display = 'block';
-        answerButtons.innerHTML = '';
-        updateUI();
     });
 
-    document.getElementById('nextCacheBtn').addEventListener('click', () => {
-        currentIdx = (currentIdx + 1) % caches.length;
-        openedCurrent = false;
-        openBtn.style.display = 'block';
-        answerButtons.innerHTML = '';
-        updateUI();
+    resetCacheBtn.addEventListener('click', () => {
+        cachePlaced = false;
+        cacheSolved = false;
+        cacheGroup.visible = false;
+        clearQuestionUI();
+        taskText.innerText = "Наведите кольцо на пол или стол";
+        subText.innerText = "Нажмите кнопку, чтобы закрепить тайник на поверхности";
+        placeOrOpenBtn.disabled = !surfaceHitPose;
+        placeOrOpenBtn.innerText = surfaceHitPose ? "Поставить тайник сюда" : "Наведите кольцо на поверхность";
     });
 
-    async function init() {
+    function onXRFrame(time, frame) {
+        if (!xrSession) return;
+        xrSession.requestAnimationFrame(onXRFrame);
+
+        const pose = frame.getViewerPose(localRefSpace);
+        if (!pose) return;
+
+        const view = pose.views[0];
+        camera.matrix.fromArray(view.transform.matrix);
+        camera.matrix.decompose(camera.position, camera.quaternion, camera.scale);
+        camera.projectionMatrix.fromArray(view.projectionMatrix);
+
+        // Поиск горизонтальной поверхности через hit-test
+        if (!cachePlaced && hitTestSource) {
+            const hits = frame.getHitTestResults(hitTestSource);
+            if (hits.length > 0) {
+                surfaceHitPose = hits[0].getPose(localRefSpace);
+                if (surfaceHitPose) {
+                    reticle.visible = true;
+                    reticle.position.set(
+                        surfaceHitPose.transform.position.x,
+                        surfaceHitPose.transform.position.y,
+                        surfaceHitPose.transform.position.z
+                    );
+                    placeOrOpenBtn.disabled = false;
+                    placeOrOpenBtn.innerText = "Поставить тайник сюда";
+                    taskText.innerText = "Поверхность найдена";
+                    subText.innerText = "Нажмите «Поставить тайник сюда»";
+                }
+            } else {
+                surfaceHitPose = null;
+                reticle.visible = false;
+                placeOrOpenBtn.disabled = true;
+                placeOrOpenBtn.innerText = "Наведите кольцо на поверхность";
+            }
+        }
+
+        // Расчёт реальной дистанции в метрах при подходе ногами к поставленному тайнику
+        if (cachePlaced) {
+            const dx = camera.position.x - cacheGroup.position.x;
+            const dz = camera.position.z - cacheGroup.position.z;
+            const horizDist = Math.hypot(dx, dz);
+            distText.innerText = `${horizDist.toFixed(2)} м`;
+
+            if (!cacheSolved && !isQuestionActive) {
+                if (horizDist <= UNLOCK_DISTANCE_METERS) {
+                    placeOrOpenBtn.disabled = false;
+                    placeOrOpenBtn.innerText = "Раскрыть тайник (вы рядом)";
+                    taskText.innerText = "Вы подошли вплотную!";
+                    subText.innerText = "Нажмите «Раскрыть тайник», чтобы получить пример";
+                } else {
+                    placeOrOpenBtn.disabled = true;
+                    placeOrOpenBtn.innerText = `Подойдите ближе (<= ${UNLOCK_DISTANCE_METERS.toFixed(1)} м)`;
+                    taskText.innerText = "Идите к тайнику в комнате";
+                    subText.innerText = `Осталось пройти около ${Math.max(0, horizDist - UNLOCK_DISTANCE_METERS).toFixed(1)} м`;
+                }
+            }
+        } else {
+            distText.innerText = "-- м";
+        }
+
+        // Лёгкое вращение закрытого тайника на месте
+        if (cacheGroup.visible && !cacheSolved) {
+            cacheBox.rotation.y += 0.02;
+        }
+
+        renderer.render(scene, camera);
+    }
+
+    async function startAR() {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment' },
-                audio: false
-            });
-            video.srcObject = stream;
-        } catch (e) {}
+            initThree();
 
-        if ('geolocation' in navigator) {
-            navigator.geolocation.watchPosition(
-                (pos) => {
-                    const { latitude, longitude } = pos.coords;
-                    if (!userPos) {
-                        userPos = { lat: latitude, lon: longitude };
-                        createCachesAround(latitude, longitude);
-                    } else {
-                        userPos = { lat: latitude, lon: longitude };
-                    }
-                    updateUI();
-                },
-                (err) => {
-                    taskText.innerText = "GPS недоступен или запрещён";
-                    subText.innerText = "Можно нажать «Тест: поставить тайник в 3 м» для проверки";
-                },
-                { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
-            );
+            xrSession = await navigator.xr.requestSession('immersive-ar', {
+                requiredFeatures: ['hit-test'],
+                optionalFeatures: ['local', 'dom-overlay'],
+                domOverlay: { root: document.getElementById('ui') }
+            });
+
+            renderer.xr.setSession(xrSession);
+
+            localRefSpace = await xrSession.requestReferenceSpace('local');
+            viewerRefSpace = await xrSession.requestReferenceSpace('viewer');
+            hitTestSource = await xrSession.requestHitTestSource({ space: viewerRefSpace });
+
+            startArBtn.style.display = 'none';
+            placeOrOpenBtn.style.display = 'block';
+            placeOrOpenBtn.disabled = true;
+            placeOrOpenBtn.innerText = "Наведите кольцо на поверхность";
+            taskText.innerText = "Поводите камерой по полу или столу";
+            subText.innerText = "Система ищет горизонтальную плоскость";
+
+            xrSession.addEventListener('end', () => {
+                xrSession = null;
+                hitTestSource = null;
+                placeOrOpenBtn.style.display = 'none';
+                resetCacheBtn.style.display = 'none';
+                startArBtn.style.display = 'block';
+                taskText.innerText = "AR-сессия завершена";
+            });
+
+            xrSession.requestAnimationFrame(onXRFrame);
+        } catch (err) {
+            taskText.innerText = "Не удалось запустить WebXR AR";
+            subText.innerText = err && err.message ? err.message : String(err);
         }
     }
 
-    init();
+    startArBtn.addEventListener('click', startAR);
+
+    async function checkSupport() {
+        const isSecure = window.isSecureContext;
+        const hasXR = 'xr' in navigator;
+
+        if (!isSecure) {
+            taskText.innerText = "Нужен HTTPS";
+            subText.innerText = "WebXR работает только по защищённому соединению (https:// или localhost)";
+            compatBox.innerText = "Контекст: небезопасный (не HTTPS).";
+            return;
+        }
+
+        if (!hasXR || typeof navigator.xr.isSessionSupported !== 'function') {
+            taskText.innerText = "WebXR не поддерживается";
+            subText.innerText = "В этом браузере или на этом устройстве нет API navigator.xr (часто на iOS/Safari или без ARCore).";
+            compatBox.innerText = "Совет: проверьте на Android в Google Chrome с установленными «Сервисами Google Play для AR».";
+            return;
+        }
+
+        try {
+            const supported = await navigator.xr.isSessionSupported('immersive-ar');
+            if (supported) {
+                startArBtn.disabled = false;
+                taskText.innerText = "Устройство готово к WebXR AR";
+                subText.innerText = "Нажмите «Запуск AR», наведите на поверхность и поставьте тайник";
+                compatBox.innerText = "Поддержка immersive-ar: ДА.";
+            } else {
+                taskText.innerText = "Режим immersive-ar недоступен";
+                subText.innerText = "Устройство или браузер не поддерживает ARCore / WebXR immersive-ar.";
+                compatBox.innerText = "Поддержка immersive-ar: НЕТ.";
+            }
+        } catch (e) {
+            taskText.innerText = "Ошибка проверки WebXR";
+            subText.innerText = e.message || String(e);
+        }
+    }
+
+    checkSupport();
 </script>
 </body>
 </html>
