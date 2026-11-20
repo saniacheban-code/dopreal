@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>3D AR-Математика: Пространство и укрытия</title>
+    <title>3D AR-Тайники: Рациональные числа</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
         body, html {
@@ -16,24 +16,43 @@
         }
         #threeCanvas {
             position: fixed; inset: 0; width: 100%; height: 100%;
-            z-index: 2; pointer-events: auto;
+            z-index: 2;
         }
         .hud {
             position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
-            z-index: 4; background: rgba(15, 23, 42, 0.85);
+            z-index: 5; background: rgba(15, 23, 42, 0.88);
             backdrop-filter: blur(8px); color: #fff;
-            padding: 12px 22px; border-radius: 16px;
+            padding: 12px 20px; border-radius: 16px;
             border: 2px solid #38bdf8; text-align: center;
-            min-width: 270px; pointer-events: none;
+            min-width: 280px; max-width: 92vw; pointer-events: none;
         }
         .hud .stats { font-size: 13px; color: #94a3b8; margin-bottom: 4px; }
-        .hud .task { font-size: 24px; font-weight: bold; color: #f8fafc; }
-        .hint {
-            position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
-            z-index: 4; background: rgba(15, 23, 42, 0.75); color: #e2e8f0;
-            padding: 8px 16px; border-radius: 999px; font-size: 13px;
-            white-space: nowrap; pointer-events: none;
+        .hud .task { font-size: 22px; font-weight: bold; color: #f8fafc; min-height: 28px; }
+        .hud .sub { font-size: 13px; color: #7dd3fc; margin-top: 4px; }
+
+        .controls {
+            position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+            z-index: 5; display: flex; gap: 10px; align-items: center;
         }
+        .ctrl-btn {
+            padding: 11px 18px; font-size: 15px; font-weight: bold;
+            border: none; border-radius: 12px; cursor: pointer;
+            color: #fff; background: rgba(2, 132, 199, 0.9);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+        }
+        .ctrl-btn.secondary {
+            background: rgba(30, 41, 59, 0.9);
+            border: 1px solid #475569;
+        }
+        .ctrl-btn:active { transform: scale(0.96); }
+
+        #feedback {
+            position: fixed; top: 45%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 6; font-size: 28px; font-weight: 800;
+            padding: 12px 24px; border-radius: 16px;
+            display: none; pointer-events: none; text-align: center;
+        }
+
         #startScreen {
             position: fixed; inset: 0; z-index: 10;
             background: rgba(15, 23, 42, 0.96); color: #fff;
@@ -42,10 +61,10 @@
         }
         #startScreen h1 { color: #38bdf8; font-size: 26px; margin-bottom: 12px; }
         #startScreen p { color: #cbd5e1; max-width: 360px; line-height: 1.45; margin-bottom: 22px; }
-        button {
-            padding: 14px 28px; font-size: 17px; font-weight: bold;
+        #startBtn {
+            padding: 15px 30px; font-size: 18px; font-weight: bold;
             background: #0284c7; color: #fff; border: none; border-radius: 12px;
-            cursor: pointer; box-shadow: 0 4px 18px rgba(2, 132, 199, 0.45);
+            cursor: pointer;
         }
     </style>
     <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
@@ -53,144 +72,76 @@
 <body>
 
 <div id="startScreen">
-    <h1>3D AR-Математика</h1>
-    <p>3D-сферы закреплены в пространстве вокруг вас и могут скрываться за 3D-колоннами/экранами сцены. Поворачивайте смартфон, чтобы заглянуть за укрытия, и нажимайте на верный ответ!</p>
-    <button id="startBtn">Запустить 3D AR</button>
+    <h1>AR-Тайники: Математика</h1>
+    <p>Осмотритесь вокруг: статичные капсулы лежат на постаментах или прячутся за укрытиями. Наведите камеру на капсулу, подойдите вплотную — из неё вылетит пример и варианты ответа!</p>
+    <button id="startBtn">Запустить камеру</button>
 </div>
 
 <video id="camera" autoplay playsinline muted></video>
 <canvas id="threeCanvas"></canvas>
 
 <div class="hud" id="hud" style="display:none;">
-    <div class="stats">Счёт: <span id="score">0</span> | Пример: <span id="qNum">1</span></div>
-    <div class="task" id="taskText">-12 + 7 = ?</div>
+    <div class="stats">Очки: <span id="score">0</span> | Найдено: <span id="foundCount">0</span>/<span id="totalCount">4</span></div>
+    <div class="task" id="taskText">Ищите капсулу в окружении</div>
+    <div class="sub" id="subText">Поверните телефон к тайнику и нажмите «Подойти ближе»</div>
 </div>
 
-<div class="hint" id="hint" style="display:none;">Поворачивайте телефон • Тапните по сфере с ответом</div>
+<div id="feedback"></div>
+
+<div class="controls" id="controls" style="display:none;">
+    <button class="ctrl-btn" id="approachBtn">Подойти ближе</button>
+    <button class="ctrl-btn secondary" id="stepBackBtn">Отойти</button>
+</div>
 
 <script>
     const video = document.getElementById('camera');
     const canvas = document.getElementById('threeCanvas');
     const startScreen = document.getElementById('startScreen');
     const hud = document.getElementById('hud');
-    const hint = document.getElementById('hint');
+    const controls = document.getElementById('controls');
     const taskText = document.getElementById('taskText');
+    const subText = document.getElementById('subText');
     const scoreEl = document.getElementById('score');
-    const qNumEl = document.getElementById('qNum');
+    const foundCountEl = document.getElementById('foundCount');
+    const totalCountEl = document.getElementById('totalCount');
+    const feedbackEl = document.getElementById('feedback');
 
     let scene, camera3D, renderer, raycaster;
-    let answerMeshes = [];
-    let occluderMeshes = [];
+    let caches = [];          // Статичные капсулы/тайники
+    let answerSpheres = [];   // Вылетевшие сферы с ответами
+    let activeCache = null;   // Текущий раскрытый тайник
     let currentCorrect = 0;
-    let score = 0, qNum = 1;
 
-    // Углы поворота камеры по гироскопу (в радианах)
-    let yaw = 0, pitch = 0;
-    let baseAlpha = null, baseBeta = null, baseGamma = null;
+    let score = 0;
+    let foundTotal = 0;
 
-    function makeLabelTexture(text, bgColor) {
-        const c = document.createElement('canvas');
-        c.width = 256; c.height = 256;
-        const g = c.getContext('2d');
+    // Положение и поворот 3D-камеры
+    let targetYaw = 0, targetPitch = 0;
+    let baseBeta = null, baseGamma = null;
+    let moveForwardStep = 0; // Дистанция приближения к цели
 
-        // Объёмный градиент сферы
-        const grad = g.createRadialGradient(90, 80, 20, 128, 128, 125);
-        grad.addColorStop(0, '#ffffff');
-        grad.addColorStop(0.25, bgColor);
-        grad.addColorStop(1, '#0f172a');
-
-        g.fillStyle = grad;
-        g.beginPath();
-        g.arc(128, 128, 120, 0, Math.PI * 2);
-        g.fill();
-
-        g.lineWidth = 8;
-        g.strokeStyle = 'rgba(255,255,255,0.65)';
-        g.stroke();
-
-        // Текст ответа
-        g.fillStyle = '#ffffff';
-        g.font = 'bold 68px Segoe UI, sans-serif';
-        g.textAlign = 'center';
-        g.textBaseline = 'middle';
-        g.shadowColor = 'rgba(0,0,0,0.6)';
-        g.shadowBlur = 10;
-        g.fillText(text, 128, 132);
-
-        return new THREE.CanvasTexture(c);
+    function showFeedback(text, good = true) {
+        feedbackEl.innerText = text;
+        feedbackEl.style.display = 'block';
+        feedbackEl.style.background = good ? 'rgba(22, 163, 74, 0.9)' : 'rgba(220, 38, 38, 0.9)';
+        feedbackEl.style.color = '#fff';
+        setTimeout(() => { feedbackEl.style.display = 'none'; }, 1100);
     }
 
-    function initThree() {
-        scene = new THREE.Scene();
-
-        camera3D = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 50);
-        camera3D.position.set(0, 0, 0);
-
-        renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-        raycaster = new THREE.Raycaster();
-
-        // Свет для объёма
-        const ambient = new THREE.AmbientLight(0xffffff, 1.1);
-        scene.add(ambient);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-        dirLight.position.set(3, 5, 4);
-        scene.add(dirLight);
-
-        // Виртуальные "укрытия" (полупрозрачные 3D-стеллы/колонны в пространстве сцены),
-        // за которыми сферы с ответами могут частично или полностью скрываться по глубине (Z-buffer)
-        const occluderMat = new THREE.MeshBasicMaterial({
-            color: 0x38bdf8,
-            transparent: true,
-            opacity: 0.14,
-            wireframe: false
-        });
-        const edgeMat = new THREE.LineBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.45 });
-
-        const pillarPositions = [
-            { x: -1.4, y: -0.2, z: -3.2, w: 0.7, h: 2.2, d: 0.5 },
-            { x:  1.4, y: -0.2, z: -3.2, w: 0.7, h: 2.2, d: 0.5 },
-            { x:  0.0, y: -0.5, z: -2.6, w: 0.9, h: 1.4, d: 0.5 }
-        ];
-
-        pillarPositions.forEach(p => {
-            const geo = new THREE.BoxGeometry(p.w, p.h, p.d);
-            const mesh = new THREE.Mesh(geo, occluderMat);
-            mesh.position.set(p.x, p.y, p.z);
-
-            const edges = new THREE.EdgesGeometry(geo);
-            const line = new THREE.LineSegments(edges, edgeMat);
-            mesh.add(line);
-
-            // По умолчанию пишем в depthBuffer, чтобы сферы позади скрывались
-            mesh.material.depthWrite = true;
-            scene.add(mesh);
-            occluderMeshes.push(mesh);
-        });
-
-        window.addEventListener('resize', () => {
-            camera3D.aspect = window.innerWidth / window.innerHeight;
-            camera3D.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-    }
-
-    function generateQuestion() {
+    function generateMathQuestion() {
         const type = Math.floor(Math.random() * 3);
         let a, b, text, ans;
 
         if (type === 0) {
             a = Math.floor(Math.random() * 25) - 12;
             b = Math.floor(Math.random() * 25) - 12;
-            if (b === 0) b = 5;
+            if (b === 0) b = 4;
             ans = a + b;
             text = b < 0 ? `${a} + (${b})` : `${a} + ${b}`;
         } else if (type === 1) {
             a = Math.floor(Math.random() * 21) - 10;
             b = Math.floor(Math.random() * 21) - 10;
-            if (b === 0) b = -4;
+            if (b === 0) b = -3;
             ans = a - b;
             text = b < 0 ? `${a} - (${b})` : `${a} - ${b}`;
         } else {
@@ -200,65 +151,194 @@
             text = `${a.toString().replace('.', ',')} + (${b.toString().replace('.', ',')})`;
         }
 
-        currentCorrect = ans;
-        taskText.innerText = `${text} = ?`;
-        spawn3DAnswers(ans);
+        return { text: `${text} = ?`, ans };
     }
 
-    function spawn3DAnswers(correctAns) {
-        answerMeshes.forEach(m => scene.remove(m));
-        answerMeshes = [];
+    function makeSphereTexture(label, bgColor) {
+        const c = document.createElement('canvas');
+        c.width = 256; c.height = 256;
+        const g = c.getContext('2d');
 
-        const opts = new Set([correctAns]);
-        while (opts.size < 4) {
-            let delta = Math.floor(Math.random() * 7) - 3;
-            if (delta === 0) delta = 4;
-            let fake = Number.isInteger(correctAns)
-                ? correctAns + delta
-                : +(correctAns + delta * 0.5).toFixed(1);
-            opts.add(fake);
-        }
+        const grad = g.createRadialGradient(85, 80, 18, 128, 128, 124);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.28, bgColor);
+        grad.addColorStop(1, '#0f172a');
 
-        const arr = Array.from(opts).sort(() => Math.random() - 0.5);
-        const palette = ['#0ea5e9', '#8b5cf6', '#ec4899', '#f59e0b'];
+        g.fillStyle = grad;
+        g.beginPath();
+        g.arc(128, 128, 120, 0, Math.PI * 2);
+        g.fill();
 
-        // Закрепляем сферы на разной глубине (Z) вокруг укрытий
-        const slots = [
-            { x: -1.8, y:  0.35, z: -2.4, orbitAmp: 0.45, speed: 1.1 },
-            { x:  1.8, y:  0.30, z: -2.5, orbitAmp: 0.45, speed: 1.25 },
-            { x: -0.7, y: -0.35, z: -4.2, orbitAmp: 0.65, speed: 0.95 },
-            { x:  0.7, y:  0.55, z: -4.1, orbitAmp: 0.65, speed: 1.15 }
+        g.lineWidth = 8;
+        g.strokeStyle = 'rgba(255,255,255,0.75)';
+        g.stroke();
+
+        g.fillStyle = '#ffffff';
+        g.font = 'bold 66px Segoe UI, sans-serif';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.shadowColor = 'rgba(0,0,0,0.65)';
+        g.shadowBlur = 8;
+        g.fillText(label, 128, 132);
+
+        return new THREE.CanvasTexture(c);
+    }
+
+    function initScene() {
+        scene = new THREE.Scene();
+        camera3D = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 60);
+        camera3D.position.set(0, 0, 0);
+
+        renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        raycaster = new THREE.Raycaster();
+
+        scene.add(new THREE.AmbientLight(0xffffff, 1.15));
+        const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+        dir.position.set(3, 6, 4);
+        scene.add(dir);
+
+        // Окружение: «укрытия» (колонны) и «поверхности» (тумбы/постаменты)
+        const blockerMat = new THREE.MeshStandardMaterial({
+            color: 0x334155, transparent: true, opacity: 0.42, roughness: 0.5
+        });
+        const edgeMat = new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.7 });
+
+        const blockers = [
+            // Передняя колонна — скрывает тайник за собой
+            { x: -1.1, y: -0.2, z: -3.2, w: 0.85, h: 2.3, d: 0.6 },
+            // Правая колонна — скрывает тайник сбоку
+            { x:  2.2, y: -0.1, z: -2.4, w: 0.85, h: 2.3, d: 0.6 },
+            // Левая тумба — на ней лежит тайник
+            { x: -2.3, y: -1.15, z: -2.7, w: 1.0, h: 0.7, d: 1.0 },
+            // Дальняя правая тумба — на ней лежит тайник
+            { x:  1.1, y: -1.25, z: -4.2, w: 1.0, h: 0.7, d: 1.0 }
         ];
 
-        arr.forEach((val, idx) => {
-            const label = val.toString().replace('.', ',');
-            const tex = makeLabelTexture(label, palette[idx % palette.length]);
-            const geo = new THREE.SphereGeometry(0.42, 32, 32);
-            const mat = new THREE.MeshStandardMaterial({
-                map: tex,
-                roughness: 0.25,
-                metalness: 0.1
-            });
-
-            const mesh = new THREE.Mesh(geo, mat);
-            const slot = slots[idx];
-            mesh.position.set(slot.x, slot.y, slot.z);
-            mesh.userData = {
-                value: val,
-                baseX: slot.x,
-                baseY: slot.y,
-                baseZ: slot.z,
-                orbitAmp: slot.orbitAmp,
-                speed: slot.speed,
-                phase: idx * 1.5
-            };
-
+        blockers.forEach(b => {
+            const geo = new THREE.BoxGeometry(b.w, b.h, b.d);
+            const mesh = new THREE.Mesh(geo, blockerMat);
+            mesh.position.set(b.x, b.y, b.z);
+            mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat));
             scene.add(mesh);
-            answerMeshes.push(mesh);
+        });
+
+        // Статичные тайники: часть лежит на тумбах, часть спрятана за колоннами
+        const cacheConfigs = [
+            // Лежит на левой тумбе
+            { id: 1, x: -2.3, y: -0.52, z: -2.7, hiddenBehind: false },
+            // Спрятан за передней левой колонной (глубже по Z)
+            { id: 2, x: -1.1, y: -0.15, z: -3.95, hiddenBehind: true },
+            // Спрятан за правой колонной (глубже по Z)
+            { id: 3, x:  2.2, y: -0.10, z: -3.25, hiddenBehind: true },
+            // Лежит на дальней правой тумбе
+            { id: 4, x:  1.1, y: -0.62, z: -4.2, hiddenBehind: false }
+        ];
+
+        totalCountEl.innerText = cacheConfigs.length;
+
+        const cacheGeo = new THREE.OctahedronGeometry(0.34, 0);
+        cacheConfigs.forEach(cfg => {
+            const mat = new THREE.MeshStandardMaterial({
+                color: 0xf59e0b,
+                emissive: 0x78350f,
+                roughness: 0.25,
+                metalness: 0.3
+            });
+            const mesh = new THREE.Mesh(cacheGeo, mat);
+            mesh.position.set(cfg.x, cfg.y, cfg.z);
+            mesh.userData = {
+                id: cfg.id,
+                opened: false,
+                solved: false,
+                basePos: new THREE.Vector3(cfg.x, cfg.y, cfg.z)
+            };
+            scene.add(mesh);
+            caches.push(mesh);
+        });
+
+        window.addEventListener('resize', () => {
+            camera3D.aspect = window.innerWidth / window.innerHeight;
+            camera3D.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
         });
     }
 
-    // Тап по 3D-сфере в пространстве
+    function clearAnswers() {
+        answerSpheres.forEach(s => scene.remove(s));
+        answerSpheres = [];
+    }
+
+    function openCache(cacheMesh) {
+        if (activeCache && activeCache !== cacheMesh) return;
+        clearAnswers();
+        activeCache = cacheMesh;
+        cacheMesh.userData.opened = true;
+        cacheMesh.material.color.setHex(0x38bdf8);
+
+        const q = generateMathQuestion();
+        currentCorrect = q.ans;
+        taskText.innerText = q.text;
+        subText.innerText = "Выберите сферу с правильным ответом";
+
+        const opts = new Set([q.ans]);
+        while (opts.size < 4) {
+            let delta = Math.floor(Math.random() * 7) - 3;
+            if (delta === 0) delta = 4;
+            let fake = Number.isInteger(q.ans) ? q.ans + delta : +(q.ans + delta * 0.5).toFixed(1);
+            opts.add(fake);
+        }
+
+        const list = Array.from(opts).sort(() => Math.random() - 0.5);
+        const colors = ['#0ea5e9', '#8b5cf6', '#ec4899', '#10b981'];
+
+        // Вылетают веером вокруг раскрытого тайника и остаются на своих позициях
+        const offsets = [
+            { x: -0.75, y:  0.45, z: 0.25 },
+            { x:  0.75, y:  0.45, z: 0.25 },
+            { x: -0.65, y: -0.35, z: 0.35 },
+            { x:  0.65, y: -0.35, z: 0.35 }
+        ];
+
+        list.forEach((val, idx) => {
+            const tex = makeSphereTexture(val.toString().replace('.', ','), colors[idx]);
+            const sphere = new THREE.Mesh(
+                new THREE.SphereGeometry(0.28, 28, 28),
+                new THREE.MeshStandardMaterial({ map: tex, roughness: 0.25 })
+            );
+            sphere.position.copy(cacheMesh.position);
+            sphere.userData = {
+                value: val,
+                targetPos: cacheMesh.position.clone().add(new THREE.Vector3(offsets[idx].x, offsets[idx].y, offsets[idx].z))
+            };
+            scene.add(sphere);
+            answerSpheres.push(sphere);
+        });
+    }
+
+    // Приближение к тайнику (имитация шага вперёд в 3D-пространстве)
+    document.getElementById('approachBtn').addEventListener('click', () => {
+        moveForwardStep = Math.min(2.4, moveForwardStep + 0.65);
+
+        // Проверяем, оказался ли какой-нибудь нераскрытый тайник достаточно близко и в поле зрения
+        for (const c of caches) {
+            if (!c.userData.solved && !c.userData.opened) {
+                const dist = c.position.distanceTo(camera3D.position);
+                if (dist < 2.5) {
+                    openCache(c);
+                    break;
+                }
+            }
+        }
+    });
+
+    document.getElementById('stepBackBtn').addEventListener('click', () => {
+        moveForwardStep = Math.max(0, moveForwardStep - 0.65);
+    });
+
+    // Клик по сфере ответа или по тайнику
     canvas.addEventListener('pointerdown', (e) => {
         if (!scene || !camera3D) return;
         const rect = canvas.getBoundingClientRect();
@@ -267,40 +347,73 @@
             -((e.clientY - rect.top) / rect.height) * 2 + 1
         );
         raycaster.setFromCamera(pointer, camera3D);
-        const hits = raycaster.intersectObjects(answerMeshes, false);
-        if (hits.length > 0) {
-            const chosen = hits[0].object.userData.value;
-            if (chosen === currentCorrect) {
-                score += 10;
-            } else {
-                score = Math.max(0, score - 5);
+
+        // Сначала проверяем сферы с ответами, если тайник раскрыт
+        if (activeCache && answerSpheres.length > 0) {
+            const hitsAns = raycaster.intersectObjects(answerSpheres, false);
+            if (hitsAns.length > 0) {
+                const chosen = hitsAns[0].object.userData.value;
+                if (chosen === currentCorrect) {
+                    score += 15;
+                    foundTotal++;
+                    scoreEl.innerText = score;
+                    foundCountEl.innerText = foundTotal;
+                    activeCache.userData.solved = true;
+                    activeCache.material.color.setHex(0x22c55e);
+                    showFeedback("Верно! +15", true);
+                } else {
+                    score = Math.max(0, score - 5);
+                    scoreEl.innerText = score;
+                    activeCache.userData.opened = false;
+                    activeCache.material.color.setHex(0xf59e0b);
+                    showFeedback("Неверно! -5", false);
+                }
+                clearAnswers();
+                activeCache = null;
+                taskText.innerText = foundTotal === caches.length
+                    ? "Все тайники открыты!"
+                    : "Ищите следующий тайник";
+                subText.innerText = "Поверните камеру и нажмите «Подойти ближе»";
+                return;
             }
-            scoreEl.innerText = score;
-            qNum++;
-            qNumEl.innerText = qNum;
-            generateQuestion();
+        }
+
+        // Если тапнули по тайнику вблизи — раскрываем его
+        const availableCaches = caches.filter(c => !c.userData.solved);
+        const hitsCache = raycaster.intersectObjects(availableCaches, false);
+        if (hitsCache.length > 0) {
+            const target = hitsCache[0].object;
+            if (target.position.distanceTo(camera3D.position) <= 3.0) {
+                openCache(target);
+            } else {
+                subText.innerText = "Подойдите ближе (нажмите «Подойти ближе»)";
+            }
         }
     });
 
-    const clock = new THREE.Clock();
     function animate() {
         requestAnimationFrame(animate);
-        const t = clock.getElapsedTime();
 
-        // Плавный поворот виртуальной камеры по гироскопу — объекты «привязаны к комнате»
+        // Плавное приближение камеры вперёд вдоль текущего взгляда
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera3D.quaternion);
+        const desiredCamPos = forward.clone().multiplyScalar(moveForwardStep);
+        camera3D.position.lerp(desiredCamPos, 0.1);
+
         camera3D.rotation.order = 'YXZ';
-        camera3D.rotation.y = THREE.MathUtils.lerp(camera3D.rotation.y, yaw, 0.12);
-        camera3D.rotation.x = THREE.MathUtils.lerp(camera3D.rotation.x, pitch, 0.12);
+        camera3D.rotation.y = THREE.MathUtils.lerp(camera3D.rotation.y, targetYaw, 0.12);
+        camera3D.rotation.x = THREE.MathUtils.lerp(camera3D.rotation.x, targetPitch, 0.12);
 
-        answerMeshes.forEach(mesh => {
-            const u = mesh.userData;
-            // Движение по дуге вокруг своего якоря в пространстве (заходит за укрытия и выходит)
-            mesh.position.x = u.baseX + Math.sin(t * u.speed + u.phase) * u.orbitAmp;
-            mesh.position.y = u.baseY + Math.cos(t * u.speed * 0.8 + u.phase) * 0.18;
-            mesh.position.z = u.baseZ + Math.cos(t * u.speed + u.phase) * 0.9;
+        // Тайники остаются статичными в своих точках (только лёгкое свечение/вращение на месте)
+        caches.forEach(c => {
+            if (!c.userData.solved) {
+                c.rotation.y += 0.008;
+            }
+        });
 
-            // Поворачиваем шар лицом к камере, чтобы число всегда читалось
-            mesh.lookAt(camera3D.position);
+        // Вылетевшие сферы плавно выдвигаются в заданные точки вокруг тайника и смотрят на камеру
+        answerSpheres.forEach(s => {
+            s.position.lerp(s.userData.targetPos, 0.12);
+            s.lookAt(camera3D.position);
         });
 
         renderer.render(scene, camera3D);
@@ -326,20 +439,17 @@
                 if (baseBeta === null) {
                     baseBeta = e.beta;
                     baseGamma = e.gamma;
-                    baseAlpha = e.alpha || 0;
                 }
-                // Переводим наклон телефона в углы обзора 3D-камеры
-                yaw = THREE.MathUtils.degToRad((e.gamma - baseGamma) * 1.1);
-                pitch = THREE.MathUtils.degToRad((e.beta - baseBeta) * 0.8);
+                targetYaw = THREE.MathUtils.degToRad((e.gamma - baseGamma) * 1.15);
+                targetPitch = THREE.MathUtils.degToRad((e.beta - baseBeta) * 0.85);
             });
         }
 
         startScreen.style.display = 'none';
         hud.style.display = 'block';
-        hint.style.display = 'block';
+        controls.style.display = 'flex';
 
-        initThree();
-        generateQuestion();
+        initScene();
         animate();
     });
 </script>
