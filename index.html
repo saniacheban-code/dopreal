@@ -3,149 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>3D AR-Тайники: Пространство</title>
+    <title>AR-Тайник на маркере: Рациональные числа</title>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: none; }
-        body, html {
-            width: 100%; height: 100%; overflow: hidden;
-            background: #000; font-family: 'Segoe UI', Tahoma, sans-serif;
-        }
-        #camera {
-            position: fixed; inset: 0; width: 100%; height: 100%;
-            object-fit: cover; z-index: 1;
-        }
-        #threeCanvas {
-            position: fixed; inset: 0; width: 100%; height: 100%;
-            z-index: 2;
-        }
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, sans-serif; }
         .hud {
-            position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
-            z-index: 5; background: rgba(15, 23, 42, 0.88);
-            backdrop-filter: blur(8px); color: #fff;
-            padding: 12px 20px; border-radius: 16px;
-            border: 2px solid #38bdf8; text-align: center;
-            min-width: 280px; max-width: 92vw; pointer-events: none;
+            position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+            z-index: 20; background: rgba(15, 23, 42, 0.88); color: #fff;
+            padding: 10px 18px; border-radius: 14px; border: 2px solid #38bdf8;
+            text-align: center; min-width: 270px; max-width: 92vw;
         }
-        .hud .stats { font-size: 13px; color: #94a3b8; margin-bottom: 4px; }
-        .hud .task { font-size: 22px; font-weight: bold; color: #f8fafc; min-height: 28px; }
-        .hud .sub { font-size: 13px; color: #7dd3fc; margin-top: 4px; }
+        .hud .stats { font-size: 13px; color: #94a3b8; }
+        .hud .task { font-size: 22px; font-weight: bold; margin-top: 3px; }
+        .hud .sub { font-size: 12px; color: #7dd3fc; margin-top: 2px; }
 
-        /* Центральный прицел для понимания, куда направлен взгляд */
-        #reticle {
-            position: fixed; top: 50%; left: 50%;
-            width: 18px; height: 18px; margin: -9px 0 0 -9px;
-            border: 2px solid rgba(255, 255, 255, 0.75);
-            border-radius: 50%; z-index: 4; pointer-events: none;
+        .bottom-panel {
+            position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+            z-index: 20; display: flex; flex-wrap: wrap; gap: 8px;
+            justify-content: center; width: 94vw; max-width: 440px;
         }
-
-        .controls {
-            position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
-            z-index: 5; display: flex; gap: 10px; align-items: center;
+        .ans-btn {
+            flex: 1 1 42%; padding: 12px 10px; font-size: 18px; font-weight: bold;
+            border: none; border-radius: 12px; color: #fff; background: #0284c7;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4); cursor: pointer;
         }
-        .ctrl-btn {
-            padding: 11px 16px; font-size: 14px; font-weight: bold;
-            border: none; border-radius: 12px; cursor: pointer;
-            color: #fff; background: rgba(2, 132, 199, 0.92);
-            box-shadow: 0 4px 14px rgba(0,0,0,0.45);
-        }
-        .ctrl-btn.secondary {
-            background: rgba(30, 41, 59, 0.92);
-            border: 1px solid #475569;
-        }
-        .ctrl-btn:active { transform: scale(0.96); }
-
-        #feedback {
-            position: fixed; top: 38%; left: 50%; transform: translate(-50%, -50%);
-            z-index: 6; font-size: 26px; font-weight: 800;
-            padding: 12px 24px; border-radius: 16px;
-            display: none; pointer-events: none; text-align: center;
-        }
-
-        #startScreen {
-            position: fixed; inset: 0; z-index: 10;
-            background: rgba(15, 23, 42, 0.96); color: #fff;
-            display: flex; flex-direction: column; align-items: center;
-            justify-content: center; padding: 24px; text-align: center;
-        }
-        #startScreen h1 { color: #38bdf8; font-size: 26px; margin-bottom: 12px; }
-        #startScreen p { color: #cbd5e1; max-width: 360px; line-height: 1.45; margin-bottom: 22px; }
-        #startBtn {
-            padding: 15px 30px; font-size: 18px; font-weight: bold;
-            background: #0284c7; color: #fff; border: none; border-radius: 12px;
+        .ans-btn:active { transform: scale(0.97); }
+        #openBtn {
+            width: 100%; padding: 13px; font-size: 16px; font-weight: bold;
+            border: none; border-radius: 12px; color: #fff; background: #16a34a;
             cursor: pointer;
         }
     </style>
-    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
 </head>
 <body>
 
-<div id="startScreen">
-    <h1>3D AR-Тайники</h1>
-    <p>Ведите пальцем по экрану (или поворачивайте телефон), чтобы осматриваться вокруг. Тайники стоят на тумбах и за колоннами на расстоянии — подойдите ближе, чтобы открыть их и решить пример.</p>
-    <button id="startBtn">Запустить камеру</button>
+<div class="hud">
+    <div class="stats">Очки: <span id="score">0</span> | Решено: <span id="solved">0</span></div>
+    <div class="task" id="taskText">Наведите камеру на маркер HIRO</div>
+    <div class="sub" id="subText">Положите маркер на стол или предмет интерьера</div>
 </div>
 
-<video id="camera" autoplay playsinline muted></video>
-<canvas id="threeCanvas"></canvas>
-<div id="reticle" style="display:none;"></div>
-
-<div class="hud" id="hud" style="display:none;">
-    <div class="stats">Очки: <span id="score">0</span> | Открыто: <span id="foundCount">0</span>/<span id="totalCount">4</span></div>
-    <div class="task" id="taskText">Осмотритесь вокруг</div>
-    <div class="sub" id="subText">Свайпните для обзора • «Шаг вперёд» для приближения</div>
+<div class="bottom-panel" id="panel">
+    <button id="openBtn">Раскрыть тайник и получить пример</button>
 </div>
 
-<div id="feedback"></div>
+<a-scene
+    embedded
+    vr-mode-ui="enabled: false"
+    renderer="logarithmicDepthBuffer: true; alpha: true;"
+    arjs="sourceType: webcam; debugUIEnabled: false; trackingMethod: best;">
 
-<div class="controls" id="controls" style="display:none;">
-    <button class="ctrl-btn" id="stepFwdBtn">Шаг вперёд</button>
-    <button class="ctrl-btn secondary" id="stepBackBtn">Назад</button>
-    <button class="ctrl-btn secondary" id="resetPosBtn">Старт</button>
-</div>
+    <a-marker preset="hiro" id="hiroMarker">
+        <!-- Основание-площадка, лежащая на маркере -->
+        <a-box position="0 0.03 0" width="1.1" depth="1.1" height="0.06" color="#1e293b"></a-box>
+
+        <!-- Закрытый тайник-куб на поверхности -->
+        <a-box id="cacheBox" position="0 0.32 0" width="0.45" height="0.45" depth="0.45"
+               color="#f59e0b" material="roughness: 0.3; metalness: 0.2">
+        </a-box>
+
+        <!-- 4 сферы с вариантами ответа (появляются при раскрытии тайника) -->
+        <a-sphere id="s0" position="-0.75 0.65 0" radius="0.22" color="#0ea5e9" visible="false">
+            <a-text id="t0" value="" align="center" color="#fff" position="0 0 0.24" scale="1.2 1.2 1.2"></a-text>
+        </a-sphere>
+        <a-sphere id="s1" position="0.75 0.65 0" radius="0.22" color="#8b5cf6" visible="false">
+            <a-text id="t1" value="" align="center" color="#fff" position="0 0 0.24" scale="1.2 1.2 1.2"></a-text>
+        </a-sphere>
+        <a-sphere id="s2" position="-0.75 0.25 0.55" radius="0.22" color="#ec4899" visible="false">
+            <a-text id="t2" value="" align="center" color="#fff" position="0 0 0.24" scale="1.2 1.2 1.2"></a-text>
+        </a-sphere>
+        <a-sphere id="s3" position="0.75 0.25 0.55" radius="0.22" color="#10b981" visible="false">
+            <a-text id="t3" value="" align="center" color="#fff" position="0 0 0.24" scale="1.2 1.2 1.2"></a-text>
+        </a-sphere>
+    </a-marker>
+
+    <a-entity camera></a-entity>
+</a-scene>
 
 <script>
-    const video = document.getElementById('camera');
-    const canvas = document.getElementById('threeCanvas');
-    const reticle = document.getElementById('reticle');
-    const startScreen = document.getElementById('startScreen');
-    const hud = document.getElementById('hud');
-    const controls = document.getElementById('controls');
+    const marker = document.getElementById('hiroMarker');
+    const cacheBox = document.getElementById('cacheBox');
+    const openBtn = document.getElementById('openBtn');
+    const panel = document.getElementById('panel');
     const taskText = document.getElementById('taskText');
     const subText = document.getElementById('subText');
     const scoreEl = document.getElementById('score');
-    const foundCountEl = document.getElementById('foundCount');
-    const totalCountEl = document.getElementById('totalCount');
-    const feedbackEl = document.getElementById('feedback');
-
-    let scene, camera3D, renderer, raycaster;
-    let caches = [];
-    let answerSpheres = [];
-    let activeCache = null;
-    let currentCorrect = 0;
+    const solvedEl = document.getElementById('solved');
 
     let score = 0;
-    let foundTotal = 0;
+    let solved = 0;
+    let currentCorrect = null;
+    let isOpened = false;
 
-    // Углы обзора камеры в мировых координатах
-    let yaw = 0;
-    let pitch = 0;
-    let gyroOffsetYaw = 0, gyroOffsetPitch = 0;
-    let lastGyroBeta = null, lastGyroGamma = null;
+    marker.addEventListener('markerFound', () => {
+        if (!isOpened) {
+            subText.innerText = "Маркер найден! Нажмите «Раскрыть тайник»";
+        }
+    });
 
-    // Для свайпа и отличия тапа от перетаскивания
-    let isDragging = false;
-    let dragMoved = false;
-    let prevX = 0, prevY = 0;
+    marker.addEventListener('markerLost', () => {
+        if (!isOpened) {
+            subText.innerText = "Маркер вне кадра — наведите камеру обратно";
+        }
+    });
 
-    function showFeedback(text, good = true) {
-        feedbackEl.innerText = text;
-        feedbackEl.style.display = 'block';
-        feedbackEl.style.background = good ? 'rgba(22, 163, 74, 0.92)' : 'rgba(220, 38, 38, 0.92)';
-        feedbackEl.style.color = '#fff';
-        setTimeout(() => { feedbackEl.style.display = 'none'; }, 1100);
-    }
-
-    function generateMathQuestion() {
+    function generateQuestion() {
         const type = Math.floor(Math.random() * 3);
         let a, b, text, ans;
 
@@ -171,129 +134,65 @@
         return { text: `${text} = ?`, ans };
     }
 
-    function makeSphereTexture(label, bgColor) {
-        const c = document.createElement('canvas');
-        c.width = 256; c.height = 256;
-        const g = c.getContext('2d');
+    function renderAnswerButtons(options) {
+        // Удаляем старые кнопки ответов, оставляя кнопку открытия
+        panel.querySelectorAll('.ans-btn').forEach(btn => btn.remove());
 
-        const grad = g.createRadialGradient(85, 80, 18, 128, 128, 124);
-        grad.addColorStop(0, '#ffffff');
-        grad.addColorStop(0.28, bgColor);
-        grad.addColorStop(1, '#0f172a');
+        options.forEach((val, idx) => {
+            const label = val.toString().replace('.', ',');
+            const sphere = document.getElementById(`s${idx}`);
+            const text3d = document.getElementById(`t${idx}`);
+            sphere.setAttribute('visible', 'true');
+            text3d.setAttribute('value', label);
 
-        g.fillStyle = grad;
-        g.beginPath();
-        g.arc(128, 128, 120, 0, Math.PI * 2);
-        g.fill();
-
-        g.lineWidth = 8;
-        g.strokeStyle = 'rgba(255,255,255,0.75)';
-        g.stroke();
-
-        g.fillStyle = '#ffffff';
-        g.font = 'bold 66px Segoe UI, sans-serif';
-        g.textAlign = 'center';
-        g.textBaseline = 'middle';
-        g.shadowColor = 'rgba(0,0,0,0.65)';
-        g.shadowBlur = 8;
-        g.fillText(label, 128, 132);
-
-        return new THREE.CanvasTexture(c);
-    }
-
-    function initScene() {
-        scene = new THREE.Scene();
-        camera3D = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
-        camera3D.position.set(0, 0, 0);
-
-        renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-        raycaster = new THREE.Raycaster();
-
-        scene.add(new THREE.AmbientLight(0xffffff, 1.2));
-        const dir = new THREE.DirectionalLight(0xffffff, 1.2);
-        dir.position.set(5, 10, 6);
-        scene.add(dir);
-
-        // Ориентиры в пространстве: колонны-укрытия и тумбы на расстоянии 7–12 метров
-        const blockerMat = new THREE.MeshStandardMaterial({
-            color: 0x1e293b, transparent: true, opacity: 0.55, roughness: 0.5
-        });
-        const edgeMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.75 });
-
-        const blockers = [
-            // Колонна впереди-слева (закрывает тайник №1 за собой)
-            { x: -3.2, y: -0.4, z: -8.0, w: 1.6, h: 4.5, d: 1.2 },
-            // Тумба впереди-справа (тайник №2 стоит сверху на ней)
-            { x:  3.4, y: -2.0, z: -8.5, w: 2.0, h: 1.4, d: 2.0 },
-            // Колонна справа (закрывает тайник №3 за собой)
-            { x:  7.5, y: -0.4, z: -3.5, w: 1.6, h: 4.5, d: 1.2 },
-            // Тумба слева (тайник №4 стоит сверху на ней)
-            { x: -7.5, y: -2.0, z: -3.5, w: 2.0, h: 1.4, d: 2.0 }
-        ];
-
-        blockers.forEach(b => {
-            const geo = new THREE.BoxGeometry(b.w, b.h, b.d);
-            const mesh = new THREE.Mesh(geo, blockerMat);
-            mesh.position.set(b.x, b.y, b.z);
-            mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat));
-            scene.add(mesh);
-        });
-
-        // Статичные тайники на дистанции (не вплотную к камере!)
-        const cacheConfigs = [
-            // Спрятан ЗА левой колонной (глубже по Z)
-            { id: 1, x: -3.2, y: -0.4, z: -9.8 },
-            // Лежит НА правой тумбе
-            { id: 2, x:  3.4, y: -1.0, z: -8.5 },
-            // Спрятан ЗА правой колонной
-            { id: 3, x:  9.2, y: -0.4, z: -3.5 },
-            // Лежит НА левой тумбе
-            { id: 4, x: -7.5, y: -1.0, z: -3.5 }
-        ];
-
-        totalCountEl.innerText = cacheConfigs.length;
-
-        const cacheGeo = new THREE.OctahedronGeometry(0.45, 0);
-        cacheConfigs.forEach(cfg => {
-            const mat = new THREE.MeshStandardMaterial({
-                color: 0xf59e0b,
-                emissive: 0x78350f,
-                roughness: 0.25,
-                metalness: 0.25
-            });
-            const mesh = new THREE.Mesh(cacheGeo, mat);
-            mesh.position.set(cfg.x, cfg.y, cfg.z);
-            mesh.userData = { id: cfg.id, opened: false, solved: false };
-            scene.add(mesh);
-            caches.push(mesh);
-        });
-
-        window.addEventListener('resize', () => {
-            camera3D.aspect = window.innerWidth / window.innerHeight;
-            camera3D.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+            const btn = document.createElement('button');
+            btn.className = 'ans-btn';
+            btn.innerText = label;
+            btn.addEventListener('click', () => handleAnswer(val));
+            panel.appendChild(btn);
         });
     }
 
-    function clearAnswers() {
-        answerSpheres.forEach(s => scene.remove(s));
-        answerSpheres = [];
+    function closeCache() {
+        isOpened = false;
+        currentCorrect = null;
+        cacheBox.setAttribute('color', '#f59e0b');
+        for (let i = 0; i < 4; i++) {
+            document.getElementById(`s${i}`).setAttribute('visible', 'false');
+        }
+        panel.querySelectorAll('.ans-btn').forEach(btn => btn.remove());
+        openBtn.style.display = 'block';
+        taskText.innerText = "Наведите камеру на маркер HIRO";
+        subText.innerText = "Тайник закрыт — нажмите «Раскрыть тайник»";
     }
 
-    function openCache(cacheMesh) {
-        if (activeCache && activeCache !== cacheMesh) return;
-        clearAnswers();
-        activeCache = cacheMesh;
-        cacheMesh.userData.opened = true;
-        cacheMesh.material.color.setHex(0x38bdf8);
+    function handleAnswer(chosen) {
+        if (chosen === currentCorrect) {
+            score += 15;
+            solved += 1;
+            scoreEl.innerText = score;
+            solvedEl.innerText = solved;
+            cacheBox.setAttribute('color', '#22c55e');
+            subText.innerText = "Верно! +15 очков";
+            setTimeout(closeCache, 1000);
+        } else {
+            score = Math.max(0, score - 5);
+            scoreEl.innerText = score;
+            cacheBox.setAttribute('color', '#ef4444');
+            subText.innerText = "Неверно! -5 очков, попробуйте ещё раз";
+        }
+    }
 
-        const q = generateMathQuestion();
+    openBtn.addEventListener('click', () => {
+        if (isOpened) return;
+        isOpened = true;
+        openBtn.style.display = 'none';
+        cacheBox.setAttribute('color', '#38bdf8');
+
+        const q = generateQuestion();
         currentCorrect = q.ans;
         taskText.innerText = q.text;
-        subText.innerText = "Тапните по сфере с правильным ответом";
+        subText.innerText = "Выберите правильный ответ";
 
         const opts = new Set([q.ans]);
         while (opts.size < 4) {
@@ -303,207 +202,8 @@
             opts.add(fake);
         }
 
-        const list = Array.from(opts).sort(() => Math.random() - 0.5);
-        const colors = ['#0ea5e9', '#8b5cf6', '#ec4899', '#10b981'];
-
-        const offsets = [
-            { x: -1.1, y:  0.65, z: 0.3 },
-            { x:  1.1, y:  0.65, z: 0.3 },
-            { x: -1.0, y: -0.55, z: 0.4 },
-            { x:  1.0, y: -0.55, z: 0.4 }
-        ];
-
-        list.forEach((val, idx) => {
-            const tex = makeSphereTexture(val.toString().replace('.', ','), colors[idx]);
-            const sphere = new THREE.Mesh(
-                new THREE.SphereGeometry(0.38, 28, 28),
-                new THREE.MeshStandardMaterial({ map: tex, roughness: 0.25 })
-            );
-            sphere.position.copy(cacheMesh.position);
-            sphere.userData = {
-                value: val,
-                targetPos: cacheMesh.position.clone().add(new THREE.Vector3(offsets[idx].x, offsets[idx].y, offsets[idx].z))
-            };
-            scene.add(sphere);
-            answerSpheres.push(sphere);
-        });
-    }
-
-    function updateStatusByDistance() {
-        if (activeCache) return;
-        const nearest = caches
-            .filter(c => !c.userData.solved)
-            .map(c => ({ mesh: c, dist: c.position.distanceTo(camera3D.position) }))
-            .sort((a, b) => a.dist - b.dist)[0];
-
-        if (!nearest) {
-            taskText.innerText = "Все тайники открыты!";
-            subText.innerText = `Итоговый счёт: ${score}`;
-            return;
-        }
-
-        const d = nearest.dist.toFixed(1);
-        if (nearest.dist <= 4.5) {
-            openCache(nearest.mesh);
-        } else {
-            taskText.innerText = "Ищите тайники в окружении";
-            subText.innerText = `Ближайший тайник в ${d} м • Подойдите ближе (<= 4.5 м)`;
-        }
-    }
-
-    // Шаг вперёд/назад вдоль текущего направления взгляда
-    document.getElementById('stepFwdBtn').addEventListener('click', () => {
-        const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera3D.quaternion);
-        camera3D.position.addScaledVector(dir, 1.8);
-        updateStatusByDistance();
-    });
-
-    document.getElementById('stepBackBtn').addEventListener('click', () => {
-        const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera3D.quaternion);
-        camera3D.position.addScaledVector(dir, -1.8);
-        updateStatusByDistance();
-    });
-
-    document.getElementById('resetPosBtn').addEventListener('click', () => {
-        camera3D.position.set(0, 0, 0);
-        yaw = 0;
-        pitch = 0;
-        gyroOffsetYaw = 0;
-        gyroOffsetPitch = 0;
-        updateStatusByDistance();
-    });
-
-    // Свайп для поворота взгляда
-    canvas.addEventListener('pointerdown', (e) => {
-        isDragging = true;
-        dragMoved = false;
-        prevX = e.clientX;
-        prevY = e.clientY;
-    });
-
-    window.addEventListener('pointermove', (e) => {
-        if (!isDragging) return;
-        const dx = e.clientX - prevX;
-        const dy = e.clientY - prevY;
-        if (Math.hypot(dx, dy) > 6) dragMoved = true;
-        prevX = e.clientX;
-        prevY = e.clientY;
-
-        yaw -= dx * 0.005;
-        pitch = Math.max(-1.1, Math.min(1.1, pitch - dy * 0.005));
-    });
-
-    canvas.addEventListener('pointerup', (e) => {
-        isDragging = false;
-        if (dragMoved || !scene || !camera3D) return;
-
-        const rect = canvas.getBoundingClientRect();
-        const pointer = new THREE.Vector2(
-            ((e.clientX - rect.left) / rect.width) * 2 - 1,
-            -((e.clientY - rect.top) / rect.height) * 2 + 1
-        );
-        raycaster.setFromCamera(pointer, camera3D);
-
-        if (activeCache && answerSpheres.length > 0) {
-            const hitsAns = raycaster.intersectObjects(answerSpheres, false);
-            if (hitsAns.length > 0) {
-                const chosen = hitsAns[0].object.userData.value;
-                if (chosen === currentCorrect) {
-                    score += 15;
-                    foundTotal++;
-                    scoreEl.innerText = score;
-                    foundCountEl.innerText = foundTotal;
-                    activeCache.userData.solved = true;
-                    activeCache.material.color.setHex(0x22c55e);
-                    showFeedback("Верно! +15", true);
-                } else {
-                    score = Math.max(0, score - 5);
-                    scoreEl.innerText = score;
-                    activeCache.userData.opened = false;
-                    activeCache.material.color.setHex(0xf59e0b);
-                    showFeedback("Неверно! -5", false);
-                }
-                clearAnswers();
-                activeCache = null;
-                updateStatusByDistance();
-                return;
-            }
-        }
-
-        const availableCaches = caches.filter(c => !c.userData.solved);
-        const hitsCache = raycaster.intersectObjects(availableCaches, false);
-        if (hitsCache.length > 0) {
-            const target = hitsCache[0].object;
-            if (target.position.distanceTo(camera3D.position) <= 4.5) {
-                openCache(target);
-            } else {
-                subText.innerText = "Слишком далеко — нажмите «Шаг вперёд»";
-            }
-        }
-    });
-
-    function animate() {
-        requestAnimationFrame(animate);
-
-        camera3D.rotation.order = 'YXZ';
-        camera3D.rotation.y = yaw + gyroOffsetYaw;
-        camera3D.rotation.x = Math.max(-1.2, Math.min(1.2, pitch + gyroOffsetPitch));
-
-        caches.forEach(c => {
-            if (!c.userData.solved) {
-                c.rotation.y += 0.006;
-            }
-        });
-
-        answerSpheres.forEach(s => {
-            s.position.lerp(s.userData.targetPos, 0.14);
-            s.lookAt(camera3D.position);
-        });
-
-        renderer.render(scene, camera3D);
-    }
-
-    document.getElementById('startBtn').addEventListener('click', async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment' },
-                audio: false
-            });
-            video.srcObject = stream;
-        } catch (err) {
-            console.warn('Камера недоступна:', err);
-        }
-
-        if (window.DeviceOrientationEvent) {
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                try { await DeviceOrientationEvent.requestPermission(); } catch (e) {}
-            }
-            window.addEventListener('deviceorientation', (e) => {
-                if (e.beta === null || e.gamma === null) return;
-                if (lastGyroBeta === null) {
-                    lastGyroBeta = e.beta;
-                    lastGyroGamma = e.gamma;
-                    return;
-                }
-                const dGamma = e.gamma - lastGyroGamma;
-                const dBeta = e.beta - lastGyroBeta;
-                lastGyroGamma = e.gamma;
-                lastGyroBeta = e.beta;
-
-                // Небольшая добавка от наклона без залипания к экрану
-                gyroOffsetYaw = Math.max(-0.5, Math.min(0.5, gyroOffsetYaw - THREE.MathUtils.degToRad(dGamma) * 0.4));
-                gyroOffsetPitch = Math.max(-0.4, Math.min(0.4, gyroOffsetPitch - THREE.MathUtils.degToRad(dBeta) * 0.4));
-            });
-        }
-
-        startScreen.style.display = 'none';
-        hud.style.display = 'block';
-        reticle.style.display = 'block';
-        controls.style.display = 'flex';
-
-        initScene();
-        updateStatusByDistance();
-        animate();
+        const shuffled = Array.from(opts).sort(() => Math.random() - 0.5);
+        renderAnswerButtons(shuffled);
     });
 </script>
 </body>
