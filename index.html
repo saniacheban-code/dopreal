@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Математика 6 класс: Верно / Неверно (Камера)</title>
-    <!-- Подключаем MediaPipe Face Detection (быстро работает для всего класса) -->
+    <title>Математика 6 класс: Верно / Неверно</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <style>
@@ -21,7 +20,6 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
-            overflow-x: hidden;
         }
         header {
             width: 100%;
@@ -49,7 +47,6 @@
         .sit-badge { background: #2563eb; }
         .stand-badge { background: #d97706; }
 
-        /* Экраны */
         .screen {
             display: none;
             width: 100%;
@@ -62,7 +59,6 @@
             display: flex;
         }
 
-        /* Меню выбора темы */
         .topic-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -75,42 +71,37 @@
             background: #2563eb;
             color: white;
             border: none;
-            padding: 20px 30px;
-            font-size: 28px;
+            padding: 18px 26px;
+            font-size: 26px;
             border-radius: 12px;
             cursor: pointer;
             transition: 0.2s;
             font-weight: bold;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-        .btn:hover {
-            background: #1d4ed8;
-            transform: translateY(-2px);
-        }
+        .btn:hover { background: #1d4ed8; }
         .btn-green { background: #16a34a; }
         .btn-green:hover { background: #15803d; }
         .btn-orange { background: #ea580c; }
         .btn-orange:hover { background: #c2410c; }
 
-        /* Игровая зона */
         .question-box {
             background: #ffffff;
             color: #0f172a;
             width: 100%;
-            padding: 20px 30px;
+            padding: 18px 28px;
             border-radius: 15px;
             text-align: center;
             margin-bottom: 15px;
             box-shadow: 0 6px 15px rgba(0,0,0,0.4);
-            position: relative;
         }
         .question-meta {
             font-size: 20px;
-            color: #64748b;
-            margin-bottom: 5px;
+            color: #475569;
+            margin-bottom: 6px;
         }
         .question-text {
-            font-size: 36px;
+            font-size: 34px;
             font-weight: bold;
         }
         .timer-bar-container {
@@ -118,7 +109,7 @@
             height: 14px;
             background: #e2e8f0;
             border-radius: 7px;
-            margin-top: 15px;
+            margin-top: 14px;
             overflow: hidden;
         }
         .timer-bar {
@@ -128,10 +119,10 @@
             transition: width 0.1s linear;
         }
 
-        /* Контейнер видео и канваса */
         .video-wrapper {
             position: relative;
             width: 960px;
+            max-width: 95vw;
             height: 540px;
             background: #000;
             border-radius: 15px;
@@ -145,23 +136,32 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            /* Зеркалим видео, чтобы ученикам было привычно видеть себя как в зеркале */
             transform: scaleX(-1);
         }
 
+        .debug-bar {
+            margin-top: 10px;
+            font-size: 18px;
+            color: #94a3b8;
+            text-align: center;
+        }
+
         .controls {
-            margin-top: 15px;
+            margin-top: 12px;
             display: flex;
-            gap: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
             align-items: center;
         }
         .status-msg {
-            font-size: 26px;
+            width: 100%;
+            text-align: center;
+            font-size: 24px;
             font-weight: bold;
             color: #fbbf24;
         }
 
-        /* Дробь вертикальная */
         .frac {
             display: inline-block;
             vertical-align: middle;
@@ -169,13 +169,8 @@
             font-size: 0.85em;
             margin: 0 4px;
         }
-        .frac > span {
-            display: block;
-            padding: 0 4px;
-        }
-        .frac span.bottom {
-            border-top: 2px solid #0f172a;
-        }
+        .frac > span { display: block; padding: 0 4px; }
+        .frac span.bottom { border-top: 2px solid #0f172a; }
     </style>
 </head>
 <body>
@@ -188,7 +183,6 @@
         </div>
     </header>
 
-    <!-- ЭКРАН 1: ВЫБОР ТЕМЫ -->
     <div id="menu-screen" class="screen active">
         <h2 style="font-size: 32px; margin-top: 20px;">Выберите тему урока:</h2>
         <div class="topic-grid">
@@ -199,32 +193,32 @@
         </div>
     </div>
 
-    <!-- ЭКРАН 2: ИГРА -->
     <div id="game-screen" class="screen">
         <div class="question-box">
-            <div class="question-meta" id="q-counter">Подготовка камеры...</div>
-            <div class="question-text" id="q-text">Попросите всех учеников сесть ровно за парты и смотреть в камеру</div>
+            <div class="question-meta" id="q-counter">Запуск камеры...</div>
+            <div class="question-text" id="q-text">Попросите учеников сесть за парты и смотреть в камеру</div>
             <div class="timer-bar-container">
                 <div class="timer-bar" id="timer-bar"></div>
             </div>
         </div>
 
         <div class="video-wrapper">
-            <video id="input-video" autoplay playsinline></video>
+            <video id="input-video" autoplay playsinline muted></video>
             <canvas id="output-canvas" width="960" height="540"></canvas>
         </div>
 
+        <div class="debug-bar" id="debug-bar">Диагностика: ожидание доступа к камере...</div>
+
         <div class="controls">
-            <div class="status-msg" id="status-msg">Шаг 1: Нажмите «Запомнить сидячие места», когда весь класс сядет.</div>
+            <div class="status-msg" id="status-msg">Шаг 1: Нажмите «Запомнить сидячие места», когда класс сядет.</div>
             <button class="btn btn-orange" id="calibrate-btn" onclick="calibrateSeats()">Запомнить сидячие места</button>
             <button class="btn btn-green" id="start-q-btn" onclick="startQuestion()" style="display:none;">Начать вопрос</button>
             <button class="btn" id="next-q-btn" onclick="nextQuestion()" style="display:none;">Следующий вопрос ➔</button>
-            <button class="btn" style="background:#475569; padding: 15px 20px; font-size: 22px;" onclick="location.reload()">В меню</button>
+            <button class="btn" style="background:#475569; padding: 14px 20px; font-size: 22px;" onclick="location.reload()">В меню</button>
         </div>
     </div>
 
     <script>
-        // База вопросов для 6 класса (answer: true = ВЕРНО (сидеть), false = НЕВЕРНО (встать))
         const questionsDB = {
             rational: [
                 { text: "Модуль отрицательного числа всегда является числом положительным.", answer: true },
@@ -259,50 +253,99 @@
 
         let currentQuestions = [];
         let currentIndex = 0;
-        let baselineFaces = []; // Запоминаем координаты сидящих учеников {x, y, height}
+        let baselineFaces = [];
         let latestDetections = [];
-        let gameState = 'CALIBRATION'; // CALIBRATION, COUNTDOWN, RESULT
+        let gameState = 'CALIBRATION';
         let timerInterval = null;
+        let useFallbackMotion = false;
+        let prevFrameData = null;
 
         const videoElement = document.getElementById('input-video');
         const canvasElement = document.getElementById('output-canvas');
         const canvasCtx = canvasElement.getContext('2d');
+        const debugBar = document.getElementById('debug-bar');
 
-        // Настройка MediaPipe Face Detection
-        const faceDetection = new FaceDetection({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
-        });
+        // Вспомогательный канвас для анализа движения при запасном режиме
+        const motionCanvas = document.createElement('canvas');
+        motionCanvas.width = 160;
+        motionCanvas.height = 90;
+        const motionCtx = motionCanvas.getContext('2d', { willReadFrequently: true });
 
-        faceDetection.setOptions({
-            model: 'full', // 'full' лучше видит лица на дальнем расстоянии (задние парты)
-            minDetectionConfidence: 0.45
-        });
-
-        faceDetection.onResults(onResults);
+        let faceDetection = null;
+        try {
+            if (typeof FaceDetection !== 'undefined') {
+                faceDetection = new FaceDetection({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
+                });
+                faceDetection.setOptions({
+                    model: 'full',
+                    minDetectionConfidence: 0.3
+                });
+                faceDetection.onResults(onFaceResults);
+            } else {
+                useFallbackMotion = true;
+            }
+        } catch (err) {
+            useFallbackMotion = true;
+        }
 
         function selectTopic(topicKey) {
             currentQuestions = questionsDB[topicKey];
             currentIndex = 0;
             document.getElementById('menu-screen').classList.remove('active');
             document.getElementById('game-screen').classList.add('active');
-            startCamera();
+            initCamera();
         }
 
-        function startCamera() {
-            const camera = new Camera(videoElement, {
-                onFrame: async () => {
-                    await faceDetection.send({ image: videoElement });
-                },
-                width: 1280,
-                height: 720
-            });
-            camera.start();
+        async function initCamera() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                debugBar.innerText = "Ошибка: браузер не поддерживает камеру или страница открыта без HTTPS/localhost.";
+                return;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
+                    audio: false
+                });
+                videoElement.srcObject = stream;
+                await videoElement.play();
+
+                debugBar.innerText = useFallbackMotion
+                    ? "Камера активна | Режим: детектор движения (MediaPipe недоступен)"
+                    : "Камера активна | Режим: распознавание лиц MediaPipe";
+
+                requestAnimationFrame(processLoop);
+            } catch (err) {
+                debugBar.innerText = `Ошибка доступа к камере: ${err.name} — ${err.message}. Запустите через локальный сервер или GitHub Pages и разрешите камеру.`;
+            }
         }
 
-        // Обработка каждого кадра с камеры
-        function onResults(results) {
+        let isSendingFrame = false;
+
+        async function processLoop() {
+            if (videoElement.readyState >= 2) {
+                if (!useFallbackMotion && faceDetection && !isSendingFrame) {
+                    isSendingFrame = true;
+                    try {
+                        await faceDetection.send({ image: videoElement });
+                    } catch (e) {
+                        useFallbackMotion = true;
+                        debugBar.innerText = "Переключено на запасной детектор движения";
+                    } finally {
+                        isSendingFrame = false;
+                    }
+                } else if (useFallbackMotion) {
+                    runMotionFallback();
+                }
+            }
+            requestAnimationFrame(processLoop);
+        }
+
+        function onFaceResults(results) {
             latestDetections = results.detections || [];
-            
+            debugBar.innerText = `Камера активна | Найдено лиц в кадре: ${latestDetections.length}`;
+
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
@@ -313,33 +356,26 @@
                 const w = bbox.width * canvasElement.width;
                 const h = bbox.height * canvasElement.height;
 
-                let strokeColor = '#38bdf8'; // Голубой по умолчанию (режим ожидания)
+                let strokeColor = '#38bdf8';
                 let fillColor = 'rgba(56, 189, 248, 0.15)';
-                let label = '';
 
                 if (gameState === 'COUNTDOWN' || gameState === 'RESULT') {
                     const isStanding = checkIfStanding(bbox);
-                    // Сидит = true (Верно), Стоит = false (Неверно)
-                    const studentAnswer = !isStanding; 
+                    const studentAnswer = !isStanding;
 
                     if (gameState === 'COUNTDOWN') {
-                        // Во время таймера показываем текущий статус (Сидит / Стоит)
                         strokeColor = isStanding ? '#f59e0b' : '#3b82f6';
                         fillColor = isStanding ? 'rgba(245, 158, 11, 0.25)' : 'rgba(59, 130, 246, 0.25)';
                     } else if (gameState === 'RESULT') {
-                        // После 10 секунд подсвечиваем ЗЕЛЕНЫМ или КРАСНЫМ
                         const correctAnswer = currentQuestions[currentIndex].answer;
                         const isCorrect = (studentAnswer === correctAnswer);
-
                         strokeColor = isCorrect ? '#22c55e' : '#ef4444';
                         fillColor = isCorrect ? 'rgba(34, 197, 94, 0.45)' : 'rgba(239, 68, 68, 0.45)';
                     }
                 }
 
-                // Рисуем подсветку вокруг ученика
                 canvasCtx.fillStyle = fillColor;
                 canvasCtx.fillRect(x - 10, y - 10, w + 20, h + 40);
-
                 canvasCtx.lineWidth = 5;
                 canvasCtx.strokeStyle = strokeColor;
                 canvasCtx.strokeRect(x - 10, y - 10, w + 20, h + 40);
@@ -348,28 +384,75 @@
             canvasCtx.restore();
         }
 
-        // Шаг 1: Запоминаем координаты лиц, когда весь класс сидит
+        // Запасной режим по сетке зон кадра, если MediaPipe не загрузился
+        function runMotionFallback() {
+            motionCtx.drawImage(videoElement, 0, 0, motionCanvas.width, motionCanvas.height);
+            const frame = motionCtx.getImageData(0, 0, motionCanvas.width, motionCanvas.height).data;
+
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+            if (prevFrameData && (gameState === 'COUNTDOWN' || gameState === 'RESULT')) {
+                const cols = 6;
+                const rows = 3;
+                const cellW = motionCanvas.width / cols;
+                const cellH = motionCanvas.height / rows;
+
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        let diffSum = 0;
+                        let count = 0;
+                        for (let y = Math.floor(r * cellH); y < Math.floor((r + 1) * cellH); y += 2) {
+                            for (let x = Math.floor(c * cellW); x < Math.floor((c + 1) * cellW); x += 2) {
+                                const idx = (y * motionCanvas.width + x) * 4;
+                                const diff = Math.abs(frame[idx] - prevFrameData[idx]) +
+                                             Math.abs(frame[idx + 1] - prevFrameData[idx + 1]) +
+                                             Math.abs(frame[idx + 2] - prevFrameData[idx + 2]);
+                                diffSum += diff;
+                                count++;
+                            }
+                        }
+                        const avgDiff = diffSum / Math.max(1, count);
+                        if (avgDiff > 45) {
+                            const drawX = (c / cols) * canvasElement.width;
+                            const drawY = (r / rows) * canvasElement.height;
+                            const drawW = canvasElement.width / cols;
+                            const drawH = canvasElement.height / rows;
+                            canvasCtx.strokeStyle = '#f59e0b';
+                            canvasCtx.lineWidth = 3;
+                            canvasCtx.strokeRect(drawX, drawY, drawW, drawH);
+                        }
+                    }
+                }
+            }
+            prevFrameData = new Uint8ClampedArray(frame);
+        }
+
         function calibrateSeats() {
-            if (latestDetections.length === 0) {
-                alert("Камера не видит ни одного ученика! Проверьте освещение и угол обзора.");
+            if (useFallbackMotion) {
+                baselineFaces = [{ calibrated: true }];
+                document.getElementById('status-msg').innerText = "Режим движения откалиброван. Можно начинать!";
+                document.getElementById('start-q-btn').style.display = "inline-block";
                 return;
             }
+
+            if (latestDetections.length === 0) {
+                alert("Пока не видно ни одного лица. Проверьте, что камера направлена на класс, хорошее освещение и разрешение камеры в браузере.");
+                return;
+            }
+
             baselineFaces = latestDetections.map(d => ({
                 xCenter: d.boundingBox.xCenter,
                 yCenter: d.boundingBox.yCenter,
                 height: d.boundingBox.height
             }));
 
-            document.getElementById('status-msg').innerText = `Запомнено учеников: ${baselineFaces.length}. Готовы начать!`;
+            document.getElementById('status-msg').innerText = `Запомнено лиц: ${baselineFaces.length}. Готовы начать!`;
             document.getElementById('calibrate-btn').innerText = "Перекалибровать";
             document.getElementById('start-q-btn').style.display = "inline-block";
         }
 
-        // Определяем, встал ли ученик относительно своей сидячей позиции
         function checkIfStanding(currentBbox) {
             if (baselineFaces.length === 0) return false;
-
-            // Ищем ближайшего по горизонтали (X) ученика из запомненного списка
             let closestSeat = null;
             let minDistX = Infinity;
 
@@ -381,19 +464,14 @@
                 }
             }
 
-            // Если совпадение по горизонтали найдено (ученик не убежал в другой конец класса)
-            if (closestSeat && minDistX < 0.12) {
-                // В экранных координатах Y=0 — это верх экрана, Y=1 — низ.
-                // Когда ученик встает, его Y уменьшается (голова поднимается выше).
-                // Порог подъема: 0.7 от высоты его головы в сидячем положении.
+            if (closestSeat && minDistX < 0.14) {
                 const liftAmount = closestSeat.yCenter - currentBbox.yCenter;
-                const threshold = closestSeat.height * 0.65;
+                const threshold = closestSeat.height * 0.55;
                 return liftAmount > threshold;
             }
             return false;
         }
 
-        // Запуск вопроса и 10-секундного таймера
         function startQuestion() {
             if (currentIndex >= currentQuestions.length) {
                 finishGame();
@@ -420,11 +498,7 @@
                 timeLeft -= 0.1;
                 const percent = Math.max(0, (timeLeft / 10) * 100);
                 timerBar.style.width = percent + '%';
-
-                if (timeLeft <= 3) {
-                    timerBar.style.background = '#ef4444';
-                }
-
+                if (timeLeft <= 3) timerBar.style.background = '#ef4444';
                 if (timeLeft <= 0) {
                     clearInterval(timerInterval);
                     evaluateAnswers();
@@ -432,12 +506,10 @@
             }, 100);
         }
 
-        // Подведение итогов через 10 секунд
         function evaluateAnswers() {
             gameState = 'RESULT';
             const q = currentQuestions[currentIndex];
             const rightAction = q.answer ? "ВЕРНО (нужно было СИДЕТЬ)" : "НЕВЕРНО (нужно было ВСТАТЬ)";
-            
             document.getElementById('status-msg').innerText = `Ответ: ${rightAction}`;
             document.getElementById('next-q-btn').style.display = 'inline-block';
             document.getElementById('calibrate-btn').style.display = 'inline-block';
