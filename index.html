@@ -4,19 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>AR-Тайник: Рациональные числа</title>
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, sans-serif; background: #000; }
         .hud {
             position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
             z-index: 20; background: rgba(15, 23, 42, 0.9); color: #fff;
             padding: 10px 18px; border-radius: 14px; border: 2px solid #38bdf8;
-            text-align: center; min-width: 270px; max-width: 92vw;
+            text-align: center; min-width: 280px; max-width: 92vw;
         }
         .hud .stats { font-size: 13px; color: #94a3b8; }
         .hud .task { font-size: 20px; font-weight: bold; margin-top: 3px; }
         .hud .sub { font-size: 12px; color: #7dd3fc; margin-top: 2px; }
+
         .bottom-panel {
             position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
             z-index: 20; display: flex; flex-wrap: wrap; gap: 8px;
@@ -32,52 +33,59 @@
             border: none; border-radius: 12px; color: #fff; background: #16a34a;
             cursor: pointer;
         }
+        #openBtn:disabled {
+            background: #475569;
+            color: #cbd5e1;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
 
 <div class="hud">
     <div class="stats">Очки: <span id="score">0</span> | Решено: <span id="solved">0</span></div>
-    <div class="task" id="taskText">Ожидание камеры и цели...</div>
-    <div class="sub" id="subText">Для MindAR нужен скомпилированный .mind файл вашей картинки-метки</div>
+    <div class="task" id="taskText">Метка не найдена</div>
+    <div class="sub" id="subText">Наведите камеру на маркер HIRO</div>
 </div>
 
 <div class="bottom-panel" id="panel">
-    <button id="openBtn">Раскрыть тайник и получить пример</button>
+    <button id="openBtn" disabled>Сначала найдите метку HIRO</button>
 </div>
 
-<!-- Внимание: для MindAR нужен свой targets.mind (создается в MindAR Image Target Compiler) -->
 <a-scene
-    mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; uiScanning: no; uiLoading: no;"
-    color-space="sRGB"
-    renderer="colorManagement: true, physicallyCorrectLights: true"
+    embedded
     vr-mode-ui="enabled: false"
-    device-orientation-permission-ui="enabled: false">
+    renderer="logarithmicDepthBuffer: true; alpha: true;"
+    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;">
 
-    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+    <a-marker preset="hiro" id="hiroMarker">
+        <!-- Платформа на маркере -->
+        <a-box position="0 0.03 0" width="1.1" depth="1.1" height="0.06" color="#1e293b"></a-box>
 
-    <a-entity id="targetEntity" mindar-image-target="targetIndex: 0">
-        <a-box position="0 0.03 0" width="0.8" depth="0.8" height="0.06" color="#1e293b"></a-box>
-        <a-box id="cacheBox" position="0 0.28 0" width="0.35" height="0.35" depth="0.35"
-               color="#f59e0b" material="roughness: 0.3; metalness: 0.2"></a-box>
+        <!-- Тайник-куб -->
+        <a-box id="cacheBox" position="0 0.34 0" width="0.45" height="0.45" depth="0.45"
+               color="#f59e0b" material="roughness: 0.35; metalness: 0.15"></a-box>
 
-        <a-sphere id="s0" position="-0.55 0.55 0" radius="0.18" color="#0ea5e9" visible="false">
-            <a-text id="t0" value="" align="center" color="#fff" position="0 0 0.2" scale="1 1 1"></a-text>
+        <!-- 4 сферы с вариантами ответа -->
+        <a-sphere id="s0" position="-0.75 0.68 0" radius="0.22" color="#0ea5e9" visible="false">
+            <a-text id="t0" value="" align="center" color="#fff" position="0 0 0.24" scale="1.2 1.2 1.2"></a-text>
         </a-sphere>
-        <a-sphere id="s1" position="0.55 0.55 0" radius="0.18" color="#8b5cf6" visible="false">
-            <a-text id="t1" value="" align="center" color="#fff" position="0 0 0.2" scale="1 1 1"></a-text>
+        <a-sphere id="s1" position="0.75 0.68 0" radius="0.22" color="#8b5cf6" visible="false">
+            <a-text id="t1" value="" align="center" color="#fff" position="0 0 0.24" scale="1.2 1.2 1.2"></a-text>
         </a-sphere>
-        <a-sphere id="s2" position="-0.55 0.22 0.4" radius="0.18" color="#ec4899" visible="false">
-            <a-text id="t2" value="" align="center" color="#fff" position="0 0 0.2" scale="1 1 1"></a-text>
+        <a-sphere id="s2" position="-0.75 0.28 0.55" radius="0.22" color="#ec4899" visible="false">
+            <a-text id="t2" value="" align="center" color="#fff" position="0 0 0.24" scale="1.2 1.2 1.2"></a-text>
         </a-sphere>
-        <a-sphere id="s3" position="0.55 0.22 0.4" radius="0.18" color="#10b981" visible="false">
-            <a-text id="t3" value="" align="center" color="#fff" position="0 0 0.2" scale="1 1 1"></a-text>
+        <a-sphere id="s3" position="0.75 0.28 0.55" radius="0.22" color="#10b981" visible="false">
+            <a-text id="t3" value="" align="center" color="#fff" position="0 0 0.24" scale="1.2 1.2 1.2"></a-text>
         </a-sphere>
-    </a-entity>
+    </a-marker>
+
+    <a-entity camera></a-entity>
 </a-scene>
 
 <script>
-    const targetEntity = document.getElementById('targetEntity');
+    const marker = document.getElementById('hiroMarker');
     const cacheBox = document.getElementById('cacheBox');
     const openBtn = document.getElementById('openBtn');
     const panel = document.getElementById('panel');
@@ -86,25 +94,41 @@
     const scoreEl = document.getElementById('score');
     const solvedEl = document.getElementById('solved');
 
-    let score = 0, solved = 0, currentCorrect = null, isOpened = false;
+    let score = 0;
+    let solved = 0;
+    let currentCorrect = null;
+    let isOpened = false;
+    let markerVisible = false;
 
-    targetEntity.addEventListener('targetFound', () => {
-        if (!isOpened) {
-            taskText.innerText = "Тайник найден на поверхности!";
-            subText.innerText = "Нажмите «Раскрыть тайник»";
+    function syncButtonState() {
+        if (isOpened) return;
+        if (markerVisible) {
+            openBtn.disabled = false;
+            openBtn.innerText = "Раскрыть тайник и получить пример";
+            taskText.innerText = "Тайник найден на маркере!";
+            subText.innerText = "Нажмите кнопку внизу, чтобы открыть тайник";
+        } else {
+            openBtn.disabled = true;
+            openBtn.innerText = "Сначала найдите метку HIRO";
+            taskText.innerText = "Метка не найдена";
+            subText.innerText = "Наведите камеру на маркер HIRO";
         }
+    }
+
+    marker.addEventListener('markerFound', () => {
+        markerVisible = true;
+        syncButtonState();
     });
 
-    targetEntity.addEventListener('targetLost', () => {
-        if (!isOpened) {
-            taskText.innerText = "Наведите камеру на картинку-метку";
-            subText.innerText = "Объект пропадёт, когда метка выйдет из кадра";
-        }
+    marker.addEventListener('markerLost', () => {
+        markerVisible = false;
+        syncButtonState();
     });
 
     function generateQuestion() {
         const type = Math.floor(Math.random() * 3);
         let a, b, text, ans;
+
         if (type === 0) {
             a = Math.floor(Math.random() * 25) - 12;
             b = Math.floor(Math.random() * 25) - 12;
@@ -123,6 +147,7 @@
             ans = +(a + b).toFixed(1);
             text = `${a.toString().replace('.', ',')} + (${b.toString().replace('.', ',')})`;
         }
+
         return { text: `${text} = ?`, ans };
     }
 
@@ -145,16 +170,20 @@
         isOpened = false;
         currentCorrect = null;
         cacheBox.setAttribute('color', '#f59e0b');
-        for (let i = 0; i < 4; i++) document.getElementById(`s${i}`).setAttribute('visible', 'false');
+        for (let i = 0; i < 4; i++) {
+            document.getElementById(`s${i}`).setAttribute('visible', 'false');
+        }
         panel.querySelectorAll('.ans-btn').forEach(btn => btn.remove());
         openBtn.style.display = 'block';
-        subText.innerText = "Тайник закрыт — нажмите «Раскрыть тайник»";
+        syncButtonState();
     }
 
     function handleAnswer(chosen) {
         if (chosen === currentCorrect) {
-            score += 15; solved += 1;
-            scoreEl.innerText = score; solvedEl.innerText = solved;
+            score += 15;
+            solved += 1;
+            scoreEl.innerText = score;
+            solvedEl.innerText = solved;
             cacheBox.setAttribute('color', '#22c55e');
             subText.innerText = "Верно! +15 очков";
             setTimeout(closeCache, 1000);
@@ -167,7 +196,7 @@
     }
 
     openBtn.addEventListener('click', () => {
-        if (isOpened) return;
+        if (!markerVisible || isOpened) return;
         isOpened = true;
         openBtn.style.display = 'none';
         cacheBox.setAttribute('color', '#38bdf8');
@@ -184,6 +213,7 @@
             let fake = Number.isInteger(q.ans) ? q.ans + delta : +(q.ans + delta * 0.5).toFixed(1);
             opts.add(fake);
         }
+
         renderAnswerButtons(Array.from(opts).sort(() => Math.random() - 0.5));
     });
 </script>
